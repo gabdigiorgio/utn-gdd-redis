@@ -170,7 +170,6 @@ CREATE TABLE REDIS.Descuento (
 )
 GO
 
-
 CREATE TABLE REDIS.Detalle_De_Pago (
 	detalle_de_pago_id DECIMAL(18,0) IDENTITY PRIMARY KEY,
 	detalle_de_pago_nro_tarjeta NVARCHAR(255),
@@ -231,7 +230,6 @@ CREATE TABLE REDIS.Ticket_Detalle (
 	total_producto DECIMAL(18,2)
 )
 GO
-
 
 CREATE TABLE REDIS.Caja (
 	caja_numero DECIMAL(18,0) NOT NULL,
@@ -302,6 +300,7 @@ BEGIN
 	WHERE 
 		localidad_nombre IS NOT NULL 
 		AND localidad_provincia IS NOT NULL
+	ORDER BY localidad_nombre
 END
 GO
 
@@ -512,7 +511,6 @@ WHERE PAGO_IMPORTE IS NOT NULL AND PAGO_TARJETA_NRO IS NOT NULL
 END
 GO
 
-
 CREATE PROCEDURE REDIS.migrar_Descuento AS
 BEGIN
 	INSERT INTO REDIS.Descuento 
@@ -532,7 +530,6 @@ BEGIN
 		AND mp.medio_pago = m.PAGO_MEDIO_PAGO
 END
 GO
-
 
 CREATE PROCEDURE REDIS.migrar_Envio AS
 BEGIN
@@ -557,7 +554,6 @@ BEGIN
 END
 GO
 
-
 CREATE PROCEDURE REDIS.migrar_Pago AS
 BEGIN
 	INSERT INTO REDIS.Pago 
@@ -581,7 +577,6 @@ BEGIN
 		AND t.ticket_numero = m.TICKET_NUMERO
 END
 GO
-
 
 CREATE PROCEDURE REDIS.migrar_Promocion AS
 BEGIN
@@ -691,7 +686,6 @@ GO
 
 BEGIN TRANSACTION 
 	EXECUTE REDIS.migrar_Provincia
-	EXECUTE REDIS.migrar_Localidad
 	EXECUTE REDIS.migrar_Localidad
 	EXECUTE REDIS.migrar_Super
 	EXECUTE REDIS.migrar_Sucursal
