@@ -619,16 +619,17 @@ BEGIN
 		PRODUCTO_NOMBRE,
 		PRODUCTO_DESCRIPCION,
 		PRODUCTO_PRECIO,
-		PRODUCTO_MARCA,
+		mp.marca_producto_nombre,
 		sp.subcategoria_producto_id
 	FROM 
 		gd_esquema.Maestra m,
 		REDIS.Marca_Producto mp,
 		REDIS.Subcategoria_Producto sp
 	WHERE 
-		PRODUCTO_DESCRIPCION IS NOT NULL
+		PRODUCTO_NOMBRE IS NOT NULL
 		AND mp.marca_producto_nombre = PRODUCTO_MARCA
 		AND sp.subcategoria_producto_nombre = PRODUCTO_SUB_CATEGORIA
+		AND sp.categoria_producto = PRODUCTO_CATEGORIA
 END
 GO
 
