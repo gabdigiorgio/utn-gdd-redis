@@ -159,7 +159,6 @@ CREATE TABLE REDIS.Medio_Pago (
 )
 GO
 
-
 CREATE TABLE REDIS.Descuento (
 	descuento_codigo DECIMAL(18,0) PRIMARY KEY,
 	descuento_medio_de_pago NVARCHAR(255) NOT NULL, -- FK
@@ -250,20 +249,24 @@ CREATE PROCEDURE REDIS.migrar_Provincia AS
 BEGIN
 	INSERT INTO REDIS.Provincia 
 	SELECT provincia_nombre
-		FROM (
-		SELECT CLIENTE_PROVINCIA AS provincia_nombre
+	FROM (
+		SELECT 
+			CLIENTE_PROVINCIA AS provincia_nombre
 		FROM 
 			gd_esquema.Maestra
 		UNION
-		SELECT SUCURSAL_PROVINCIA
+		SELECT 
+			SUCURSAL_PROVINCIA
 		FROM 
 			gd_esquema.Maestra
 		UNION
-		SELECT SUPER_PROVINCIA
+		SELECT 
+			SUPER_PROVINCIA
 		FROM 
 			gd_esquema.Maestra
 		) AS Placeholder
-	WHERE provincia_nombre IS NOT NULL
+	WHERE 
+		provincia_nombre IS NOT NULL
 END
 GO
 
@@ -296,7 +299,9 @@ BEGIN
 			gd_esquema.Maestra m,
 			REDIS.Provincia p
 		) AS Placeholder
-	WHERE localidad_nombre IS NOT NULL AND localidad_provincia IS NOT NULL
+	WHERE 
+		localidad_nombre IS NOT NULL 
+		AND localidad_provincia IS NOT NULL
 END
 GO
 
@@ -304,22 +309,22 @@ CREATE PROCEDURE REDIS.migrar_Super AS
 BEGIN
 	INSERT INTO REDIS.Super
 	SELECT DISTINCT
-	m.SUPER_NOMBRE,
-	m.SUPER_RAZON_SOC,
-	m.SUPER_CUIT,
-	m.SUPER_IIBB,
-	m.SUPER_DOMICILIO,
-	m.SUPER_FECHA_INI_ACTIVIDAD,
-	l.localidad_id,
-	m.SUPER_CONDICION_FISCAL
-FROM 
-	gd_esquema.Maestra m,
-	REDIS.Localidad l,
-	REDIS.Provincia p
-WHERE 
-	m.SUPER_LOCALIDAD = l.localidad_nombre 
-	AND p.provincia_id = l.localidad_provincia 
-	AND p.provincia_nombre = m.SUPER_PROVINCIA
+		m.SUPER_NOMBRE,
+		m.SUPER_RAZON_SOC,
+		m.SUPER_CUIT,
+		m.SUPER_IIBB,
+		m.SUPER_DOMICILIO,
+		m.SUPER_FECHA_INI_ACTIVIDAD,
+		l.localidad_id,
+		m.SUPER_CONDICION_FISCAL
+	FROM 
+		gd_esquema.Maestra m,
+		REDIS.Localidad l,
+		REDIS.Provincia p
+	WHERE 
+		m.SUPER_LOCALIDAD = l.localidad_nombre 
+		AND p.provincia_id = l.localidad_provincia 
+		AND p.provincia_nombre = m.SUPER_PROVINCIA
 END
 GO
 		
@@ -327,17 +332,17 @@ CREATE PROCEDURE REDIS.migrar_Sucursal AS
 BEGIN
 	INSERT INTO REDIS.Sucursal
 	SELECT DISTINCT
-	m.SUCURSAL_NOMBRE,
-	m.SUCURSAL_DIRECCION,
-	l.localidad_id
-FROM 
-	gd_esquema.Maestra m,
-	REDIS.Localidad l,
-	REDIS.Provincia p
-WHERE 
-	m.SUCURSAL_LOCALIDAD = l.localidad_nombre 
-	AND p.provincia_id = l.localidad_provincia 
-	AND p.provincia_nombre = m.SUCURSAL_PROVINCIA
+		m.SUCURSAL_NOMBRE,
+		m.SUCURSAL_DIRECCION,
+		l.localidad_id
+	FROM 
+		gd_esquema.Maestra m,
+		REDIS.Localidad l,
+		REDIS.Provincia p
+	WHERE 
+		m.SUCURSAL_LOCALIDAD = l.localidad_nombre 
+		AND p.provincia_id = l.localidad_provincia 
+		AND p.provincia_nombre = m.SUCURSAL_PROVINCIA
 END
 GO
 
@@ -393,9 +398,11 @@ CREATE PROCEDURE REDIS.migrar_Categoria_Producto AS
 BEGIN
 	INSERT INTO REDIS.Categoria_Producto
 	SELECT DISTINCT 
-    REPLACE(PRODUCTO_CATEGORIA, 'Categoria N°', '')
-	FROM gd_esquema.Maestra
-	WHERE PRODUCTO_CATEGORIA IS NOT NULL
+		PRODUCTO_CATEGORIA
+	FROM 
+		gd_esquema.Maestra
+	WHERE 
+		PRODUCTO_CATEGORIA IS NOT NULL
 END
 GO
 
@@ -406,14 +413,13 @@ BEGIN
         categoria_producto
 		)
 	SELECT DISTINCT 
-		REPLACE(m.PRODUCTO_SUB_CATEGORIA, 'SubCategoria N°', '') PRODUCTO_SUBCATEGORIA,
-		REPLACE(m.PRODUCTO_CATEGORIA, 'Categoria N°', '') PRODUCTO_CATEGORIA
+		m.PRODUCTO_SUB_CATEGORIA PRODUCTO_SUBCATEGORIA,
+		m.PRODUCTO_CATEGORIA PRODUCTO_CATEGORIA
 	FROM 
 		gd_esquema.Maestra m
 	WHERE 
 		m.PRODUCTO_SUB_CATEGORIA IS NOT NULL
-		AND REPLACE(m.PRODUCTO_CATEGORIA, 'Categoria N°', '') 
-		IN (SELECT categoria_producto_nombre FROM REDIS.Categoria_Producto)
+		AND m.PRODUCTO_CATEGORIA IN (SELECT categoria_producto_nombre FROM REDIS.Categoria_Producto)
 END
 GO
 
@@ -479,7 +485,7 @@ BEGIN
 	FROM 
 		gd_esquema.Maestra m
 	WHERE 
-	PAGO_MEDIO_PAGO IS NOT NULL
+		PAGO_MEDIO_PAGO IS NOT NULL
 END
 GO
 
@@ -532,20 +538,22 @@ CREATE PROCEDURE REDIS.migrar_Envio AS
 BEGIN
 	INSERT INTO REDIS.Envio 
 	SELECT 
-	ENVIO_COSTO,
-	ENVIO_FECHA_PROGRAMADA,
-	ENVIO_HORA_INICIO,
-	ENVIO_HORA_FIN,
-	ENVIO_FECHA_ENTREGA,
-	ENVIO_ESTADO,
-	TICKET_NUMERO,
-	c.cliente_dni
-FROM 
-	gd_esquema.Maestra m,
-	REDIS.Cliente c
-WHERE ENVIO_COSTO IS NOT NULL
-AND c.cliente_dni = m.CLIENTE_DNI
-ORDER BY TICKET_NUMERO
+		ENVIO_COSTO,
+		ENVIO_FECHA_PROGRAMADA,
+		ENVIO_HORA_INICIO,
+		ENVIO_HORA_FIN,
+		ENVIO_FECHA_ENTREGA,
+		ENVIO_ESTADO,
+		TICKET_NUMERO,
+		c.cliente_dni
+	FROM 
+		gd_esquema.Maestra m,
+		REDIS.Cliente c
+	WHERE 
+		ENVIO_COSTO IS NOT NULL
+		AND c.cliente_dni = m.CLIENTE_DNI
+	ORDER BY 
+		TICKET_NUMERO
 END
 GO
 
@@ -554,23 +562,23 @@ CREATE PROCEDURE REDIS.migrar_Pago AS
 BEGIN
 	INSERT INTO REDIS.Pago 
 	SELECT
-	PAGO_FECHA,
-	PAGO_IMPORTE,
-	PAGO_DESCUENTO_APLICADO,
-    t.ticket_numero, 
+		PAGO_FECHA,
+		PAGO_IMPORTE,
+		PAGO_DESCUENTO_APLICADO,
+		t.ticket_numero, 
     CASE 
         WHEN m.PAGO_MEDIO_PAGO = 'Efectivo' THEN NULL
         ELSE dp.detalle_de_pago_id 
     END AS detalle_de_pago_id,
 	PAGO_MEDIO_PAGO
-FROM 
-	REDIS.Ticket t,
-    gd_esquema.Maestra m
-LEFT JOIN 
-    REDIS.Detalle_De_Pago dp ON dp.detalle_de_pago_nro_tarjeta = m.PAGO_TARJETA_NRO
-WHERE 
-    PAGO_MEDIO_PAGO IS NOT NULL
-	AND t.ticket_numero = m.TICKET_NUMERO
+	FROM 
+		REDIS.Ticket t,
+		gd_esquema.Maestra m
+	LEFT JOIN 
+		REDIS.Detalle_De_Pago dp ON dp.detalle_de_pago_nro_tarjeta = m.PAGO_TARJETA_NRO
+	WHERE 
+		PAGO_MEDIO_PAGO IS NOT NULL
+		AND t.ticket_numero = m.TICKET_NUMERO
 END
 GO
 
@@ -579,12 +587,14 @@ CREATE PROCEDURE REDIS.migrar_Promocion AS
 BEGIN
 	INSERT INTO REDIS.Promocion 
 	SELECT DISTINCT
-	PROMO_CODIGO,
-	PROMOCION_DESCRIPCION,
-	r.regla_codigo
-FROM gd_esquema.Maestra m,
-REDIS.Regla r
-WHERE r.regla_descripcion = m.REGLA_DESCRIPCION
+		PROMO_CODIGO,
+		PROMOCION_DESCRIPCION,
+		r.regla_codigo
+	FROM 
+		gd_esquema.Maestra m,
+		REDIS.Regla r
+	WHERE 
+		r.regla_descripcion = m.REGLA_DESCRIPCION
 END
 GO
 
@@ -592,19 +602,19 @@ CREATE PROCEDURE REDIS.migrar_Producto AS
 BEGIN
 	INSERT INTO REDIS.Producto 
 	SELECT DISTINCT
-	REPLACE(PRODUCTO_NOMBRE, 'Codigo:', '') AS PRODUCTO_CODIGO,
-	PRODUCTO_DESCRIPCION,
-	PRODUCTO_PRECIO,
-	REPLACE(PRODUCTO_MARCA, 'Marca N°', '') AS MARCA, 
-	sp.subcategoria_producto_id AS SUBCATEGORIA
-FROM 
-	gd_esquema.Maestra m,
-	REDIS.Marca_Producto mp,
-	REDIS.Subcategoria_Producto sp
-WHERE PRODUCTO_DESCRIPCION IS NOT NULL
-AND mp.marca_producto_nombre = REPLACE(PRODUCTO_MARCA, 'Marca N°', '')
-AND sp.subcategoria_producto_nombre = REPLACE(PRODUCTO_SUB_CATEGORIA, 'SubCategoria N°', '')
-ORDER BY PRODUCTO_CODIGO
+		PRODUCTO_NOMBRE,
+		PRODUCTO_DESCRIPCION,
+		PRODUCTO_PRECIO,
+		PRODUCTO_MARCA,
+		sp.subcategoria_producto_id AS SUBCATEGORIA
+	FROM 
+		gd_esquema.Maestra m,
+		REDIS.Marca_Producto mp,
+		REDIS.Subcategoria_Producto sp
+	WHERE 
+		PRODUCTO_DESCRIPCION IS NOT NULL
+		AND mp.marca_producto_nombre = PRODUCTO_MARCA
+		AND sp.subcategoria_producto_nombre = PRODUCTO_SUB_CATEGORIA
 END
 GO
 
@@ -620,8 +630,9 @@ BEGIN
             ROW_NUMBER() OVER (PARTITION BY p.producto_id, PROMO_CODIGO ORDER BY PROMO_APLICADA_DESCUENTO DESC) AS rn
         FROM 
             gd_esquema.Maestra m
-            JOIN REDIS.Producto p ON REPLACE(m.PRODUCTO_NOMBRE, 'Codigo:', '') = p.producto_codigo
-                                 AND REPLACE(m.PRODUCTO_MARCA, 'Marca N°', '') = p.producto_marca
+            JOIN REDIS.Producto p ON 
+				m.PRODUCTO_NOMBRE = p.producto_codigo                     
+				AND m.PRODUCTO_MARCA = p.producto_marca
         WHERE
             PROMO_CODIGO IS NOT NULL
     )
@@ -641,20 +652,21 @@ CREATE PROCEDURE REDIS.migrar_Ticket_Detalle AS
 BEGIN
 	INSERT INTO REDIS.Ticket_Detalle 
 	SELECT DISTINCT
-	p.producto_id,
-	t.ticket_numero,
-	TICKET_DET_CANTIDAD,
-	TICKET_DET_PRECIO,
-	TICKET_DET_TOTAL
-FROM 
-	gd_esquema.Maestra m,
-	REDIS.Producto p,
-	REDIS.Ticket t
-WHERE 
-	REPLACE(m.PRODUCTO_NOMBRE, 'Codigo:', '') = p.producto_codigo
-	AND REPLACE(m.PRODUCTO_MARCA, 'Marca N°', '') = p.producto_marca
-	AND t.ticket_numero = m.TICKET_NUMERO
-ORDER BY ticket_numero
+		p.producto_id,
+		t.ticket_numero,
+		TICKET_DET_CANTIDAD,
+		TICKET_DET_PRECIO,
+		TICKET_DET_TOTAL
+	FROM 
+		gd_esquema.Maestra m,
+		REDIS.Producto p,
+		REDIS.Ticket t
+	WHERE 
+		m.PRODUCTO_NOMBRE = p.producto_codigo
+		AND m.PRODUCTO_MARCA = p.producto_marca
+		AND t.ticket_numero = m.TICKET_NUMERO
+	ORDER BY 
+		ticket_numero
 END
 GO
 
