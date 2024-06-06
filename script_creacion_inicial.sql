@@ -10,9 +10,35 @@ BEGIN
 END
 GO
 
---------------------------------------
---------------- TABLES ---------------
---------------------------------------
+-----------------------------------------
+-------------- DROP TABLES --------------
+-----------------------------------------
+
+IF OBJECT_ID('REDIS.Super', 'U') IS NOT NULL DROP TABLE REDIS.Super;
+IF OBJECT_ID('REDIS.Promocion_Por_Producto', 'U') IS NOT NULL DROP TABLE REDIS.Promocion_Por_Producto;
+IF OBJECT_ID('REDIS.Producto', 'U') IS NOT NULL DROP TABLE REDIS.Producto;
+IF OBJECT_ID('REDIS.Subcategoria_Producto', 'U') IS NOT NULL DROP TABLE REDIS.Subcategoria_Producto;
+IF OBJECT_ID('REDIS.Categoria_Producto', 'U') IS NOT NULL DROP TABLE REDIS.Categoria_Producto;
+IF OBJECT_ID('REDIS.Marca_Producto', 'U') IS NOT NULL DROP TABLE REDIS.Marca_Producto;
+IF OBJECT_ID('REDIS.Promocion', 'U') IS NOT NULL DROP TABLE REDIS.Promocion;
+IF OBJECT_ID('REDIS.Regla', 'U') IS NOT NULL DROP TABLE REDIS.Regla;
+IF OBJECT_ID('REDIS.Empleado', 'U') IS NOT NULL DROP TABLE REDIS.Empleado;
+IF OBJECT_ID('REDIS.Pago', 'U') IS NOT NULL DROP TABLE REDIS.Pago;
+IF OBJECT_ID('REDIS.Medio_Pago', 'U') IS NOT NULL DROP TABLE REDIS.Medio_Pago;
+IF OBJECT_ID('REDIS.Descuento', 'U') IS NOT NULL DROP TABLE REDIS.Descuento;
+IF OBJECT_ID('REDIS.Detalle_De_Pago', 'U') IS NOT NULL DROP TABLE REDIS.Detalle_De_Pago;
+IF OBJECT_ID('REDIS.Cliente', 'U') IS NOT NULL DROP TABLE REDIS.Cliente;
+IF OBJECT_ID('REDIS.Envio', 'U') IS NOT NULL DROP TABLE REDIS.Envio;
+IF OBJECT_ID('REDIS.Ticket', 'U') IS NOT NULL DROP TABLE REDIS.Ticket;
+IF OBJECT_ID('REDIS.Ticket_Detalle', 'U') IS NOT NULL DROP TABLE REDIS.Ticket_Detalle;
+IF OBJECT_ID('REDIS.Caja', 'U') IS NOT NULL DROP TABLE REDIS.Caja;
+IF OBJECT_ID('REDIS.Sucursal', 'U') IS NOT NULL DROP TABLE REDIS.Sucursal;
+IF OBJECT_ID('REDIS.Localidad', 'U') IS NOT NULL DROP TABLE REDIS.Localidad;
+IF OBJECT_ID('REDIS.Provincia', 'U') IS NOT NULL DROP TABLE REDIS.Provincia;
+
+-------------------------------------------
+-------------- CREATE TABLES --------------
+-------------------------------------------
 
 CREATE TABLE REDIS.Provincia (
 	provincia_id DECIMAL(18, 0) IDENTITY PRIMARY KEY,
@@ -34,7 +60,7 @@ CREATE TABLE REDIS.Super (
 	super_ibb NVARCHAR(255) NOT NULL,
 	super_domicilio NVARCHAR(255) NOT NULL,
 	super_fecha_ini_actividad DATETIME NOT NULL,
-	super_localidad DECIMAL(18, 0) NOT NULL -- FK,
+	super_localidad DECIMAL(18, 0) NOT NULL, -- FK
 	super_condicion_fiscal NVARCHAR(255) NOT NULL 
 )
 GO
@@ -60,7 +86,7 @@ GO
 CREATE TABLE REDIS.Subcategoria_Producto (
 	subcategoria_producto_id DECIMAL(18, 0) IDENTITY PRIMARY KEY,
 	subcategoria_producto_nombre NVARCHAR(255),
-categoria_producto NVARCHAR(255) NOT NULL -- FK
+	categoria_producto NVARCHAR(255) NOT NULL -- FK
 )
 GO
 
@@ -154,7 +180,6 @@ CREATE TABLE REDIS.Detalle_De_Pago (
 	detalle_de_pago_cliente_dni DECIMAL(18,0), --FK
 )
 GO
-
 
 CREATE TABLE REDIS.Cliente (
 	cliente_dni DECIMAL(18,0) PRIMARY KEY,
@@ -651,6 +676,30 @@ BEGIN TRANSACTION
 	EXECUTE REDIS.migrar_Promocion_Por_Producto
 	EXECUTE REDIS.migrar_Ticket_Detalle
 COMMIT TRANSACTION
+
+--------------------------------------
+---------- PROCEDURE DROPS -----------
+--------------------------------------
+
+DROP PROCEDURE REDIS.migrar_Provincia;
+DROP PROCEDURE REDIS.migrar_Localidad;
+DROP PROCEDURE REDIS.migrar_Super;
+DROP PROCEDURE REDIS.migrar_Sucursal;
+DROP PROCEDURE REDIS.migrar_Caja;
+DROP PROCEDURE REDIS.migrar_Empleado;
+DROP PROCEDURE REDIS.migrar_Categoria_Producto;
+DROP PROCEDURE REDIS.migrar_Subcategoria_Producto;
+DROP PROCEDURE REDIS.migrar_Ticket;
+DROP PROCEDURE REDIS.migrar_Cliente;
+DROP PROCEDURE REDIS.migrar_Medio_Pago;
+DROP PROCEDURE REDIS.migrar_Detalle_De_Pago;
+DROP PROCEDURE REDIS.migrar_Descuento;
+DROP PROCEDURE REDIS.migrar_Envio;
+DROP PROCEDURE REDIS.migrar_Pago;
+DROP PROCEDURE REDIS.migrar_Promocion;
+DROP PROCEDURE REDIS.migrar_Producto;
+DROP PROCEDURE REDIS.migrar_Promocion_Por_Producto;
+DROP PROCEDURE REDIS.migrar_Ticket_Detalle;
 
 --------------------------------------
 ------------ FOREING KEYS ------------
