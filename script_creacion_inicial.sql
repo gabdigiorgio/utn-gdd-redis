@@ -251,16 +251,19 @@ BEGIN
 	INSERT INTO REDIS.Provincia 
 	SELECT provincia_nombre
 		FROM (
-	SELECT CLIENTE_PROVINCIA AS provincia_nombre
-	FROM gd_esquema.Maestra
-	UNION
-	SELECT SUCURSAL_PROVINCIA
-	FROM gd_esquema.Maestra
-	UNION
-	SELECT SUPER_PROVINCIA
-	FROM gd_esquema.Maestra
-) AS Placeholder
-WHERE provincia_nombre IS NOT NULL
+		SELECT CLIENTE_PROVINCIA AS provincia_nombre
+		FROM 
+			gd_esquema.Maestra
+		UNION
+		SELECT SUCURSAL_PROVINCIA
+		FROM 
+			gd_esquema.Maestra
+		UNION
+		SELECT SUPER_PROVINCIA
+		FROM 
+			gd_esquema.Maestra
+		) AS Placeholder
+	WHERE provincia_nombre IS NOT NULL
 END
 GO
 
@@ -268,32 +271,32 @@ CREATE PROCEDURE REDIS.migrar_Localidad AS
 BEGIN
 	INSERT INTO REDIS.Localidad 
 	SELECT DISTINCT localidad_nombre, localidad_provincia 
-FROM (
-SELECT 
+	FROM (
+		SELECT 
 			p.provincia_nombre,
 			m.CLIENTE_LOCALIDAD AS localidad_nombre,
 			p.provincia_id AS localidad_provincia
-FROM 
-gd_esquema.Maestra m,
-REDIS.Provincia p
-UNION
-SELECT 
-p.provincia_nombre, 
-m.SUCURSAL_LOCALIDAD,
-p.provincia_id
-FROM 
-gd_esquema.Maestra m,
-REDIS.Provincia p
-UNION
-SELECT 
-p.provincia_nombre, 
-m.SUPER_LOCALIDAD,
-p.provincia_id
-FROM 
-gd_esquema.Maestra m,
-REDIS.Provincia p
-) AS Placeholder
-WHERE localidad_nombre IS NOT NULL AND localidad_provincia IS NOT NULL
+		FROM 
+			gd_esquema.Maestra m,
+			REDIS.Provincia p
+		UNION
+		SELECT 
+			p.provincia_nombre, 
+			m.SUCURSAL_LOCALIDAD,
+			p.provincia_id
+		FROM 
+			gd_esquema.Maestra m,
+			REDIS.Provincia p
+		UNION
+		SELECT 
+			p.provincia_nombre, 
+			m.SUPER_LOCALIDAD,
+			p.provincia_id
+		FROM 
+			gd_esquema.Maestra m,
+			REDIS.Provincia p
+		) AS Placeholder
+	WHERE localidad_nombre IS NOT NULL AND localidad_provincia IS NOT NULL
 END
 GO
 
@@ -313,7 +316,10 @@ FROM
 	gd_esquema.Maestra m,
 	REDIS.Localidad l,
 	REDIS.Provincia p
-WHERE m.SUPER_LOCALIDAD = l.localidad_nombre AND p.provincia_id = l.localidad_provincia AND p.provincia_nombre = m.SUPER_PROVINCIA
+WHERE 
+	m.SUPER_LOCALIDAD = l.localidad_nombre 
+	AND p.provincia_id = l.localidad_provincia 
+	AND p.provincia_nombre = m.SUPER_PROVINCIA
 END
 GO
 		
@@ -328,8 +334,10 @@ FROM
 	gd_esquema.Maestra m,
 	REDIS.Localidad l,
 	REDIS.Provincia p
-WHERE m.SUCURSAL_LOCALIDAD = l.localidad_nombre 
-AND p.provincia_id = l.localidad_provincia AND p.provincia_nombre = m.SUCURSAL_PROVINCIA
+WHERE 
+	m.SUCURSAL_LOCALIDAD = l.localidad_nombre 
+	AND p.provincia_id = l.localidad_provincia 
+	AND p.provincia_nombre = m.SUCURSAL_PROVINCIA
 END
 GO
 
@@ -376,8 +384,8 @@ BEGIN
 		gd_esquema.Maestra m,
 		REDIS.Sucursal s
 	WHERE 
-	EMPLEADO_NOMBRE IS NOT NULL
-	AND s.sucursal_nombre = m.SUCURSAL_NOMBRE
+		EMPLEADO_NOMBRE IS NOT NULL
+		AND s.sucursal_nombre = m.SUCURSAL_NOMBRE
 	ORDER BY EMPLEADO_NOMBRE ASC
 END
 GO
