@@ -598,6 +598,20 @@ BEGIN
 END
 GO
 
+CREATE PROCEDURE REDIS.migrar_Marca_Producto AS
+BEGIN
+	INSERT INTO REDIS.Marca_Producto
+	SELECT DISTINCT 
+		PRODUCTO_MARCA 
+	FROM 
+		gd_esquema.Maestra 
+	WHERE 
+		PRODUCTO_MARCA IS NOT NULL
+	ORDER BY 
+		PRODUCTO_MARCA
+END
+GO
+
 CREATE PROCEDURE REDIS.migrar_Producto AS
 BEGIN
 	INSERT INTO REDIS.Producto 
@@ -606,7 +620,7 @@ BEGIN
 		PRODUCTO_DESCRIPCION,
 		PRODUCTO_PRECIO,
 		PRODUCTO_MARCA,
-		sp.subcategoria_producto_id AS SUBCATEGORIA
+		sp.subcategoria_producto_id
 	FROM 
 		gd_esquema.Maestra m,
 		REDIS.Marca_Producto mp,
@@ -692,6 +706,7 @@ BEGIN TRANSACTION
 	EXECUTE REDIS.migrar_Envio
 	EXECUTE REDIS.migrar_Pago
 	EXECUTE REDIS.migrar_Promocion
+	EXECUTE REDIS.migrar_Marca_Producto
 	EXECUTE REDIS.migrar_Producto
 	EXECUTE REDIS.migrar_Promocion_Por_Producto
 	EXECUTE REDIS.migrar_Ticket_Detalle
@@ -717,6 +732,7 @@ DROP PROCEDURE REDIS.migrar_Descuento;
 DROP PROCEDURE REDIS.migrar_Envio;
 DROP PROCEDURE REDIS.migrar_Pago;
 DROP PROCEDURE REDIS.migrar_Promocion;
+DROP PROCEDURE REDIS.migrar_Marca_Producto;
 DROP PROCEDURE REDIS.migrar_Producto;
 DROP PROCEDURE REDIS.migrar_Promocion_Por_Producto;
 DROP PROCEDURE REDIS.migrar_Ticket_Detalle;
