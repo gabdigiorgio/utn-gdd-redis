@@ -231,8 +231,6 @@ CREATE TABLE REDIS.Ticket_Detalle (
 )
 GO
 
-SELECT * FROM REDIS.Ticket_Detalle
-
 CREATE TABLE REDIS.Promocion_Por_Ticket (
 	promocion_codigo NVARCHAR(255) NOT NULL,
 	ticket_detalle_id DECIMAL(18,0) NOT NULL,
@@ -724,7 +722,7 @@ BEGIN
 	SELECT 
 		t.ticket_detalle_id,
 		p.promocion_codigo,
-		m.PROMO_APLICADA_DESCUENTO
+		SUM(m.PROMO_APLICADA_DESCUENTO)
 	FROM 
 		gd_esquema.Maestra m,
 		REDIS.Ticket_Detalle t,
@@ -732,23 +730,16 @@ BEGIN
 		REDIS.Producto prod
 	WHERE 
 		PROMO_APLICADA_DESCUENTO IS NOT NULL
-		AND PROMO_APLICADA_DESCUENTO > 0
 		AND t.ticket_numero = m.TICKET_NUMERO
 		AND m.PRODUCTO_NOMBRE = prod.producto_codigo
 		AND t.producto_id = prod.producto_id
 		AND p.promocion_codigo = m.PROMO_CODIGO
 	GROUP BY 
 		t.ticket_detalle_id, 
-		p.promocion_codigo, 
-		m.PROMO_APLICADA_DESCUENTO
-	ORDER BY t.ticket_detalle_id
+		p.promocion_codigo
+	ORDER BY t.ticket_detalle_id DESC
 END
 GO
-
-SELECT PRODUCTO_NOMBRE, PROMO_APLICADA_DESCUENTO, TICKET_NUMERO FROM gd_esquema.Maestra
-WHERE PROMO_APLICADA_DESCUENTO IS NOT NULL
-GROUP BY TICKET_NUMERO, PROMO_APLICADA_DESCUENTO, PRODUCTO_NOMBRE
-ORDER BY TICKET_NUMERO, PRODUCTO_NOMBRE
 
 --------------------------------------
 ---------- DATA MIGRATION ------------
@@ -776,6 +767,7 @@ BEGIN TRANSACTION
 	EXECUTE REDIS.migrar_Producto
 	EXECUTE REDIS.migrar_Promocion_Por_Producto
 	EXECUTE REDIS.migrar_Ticket_Detalle
+	EXECUTE REDIS.migrar_Promocion_Por_Ticket
 COMMIT TRANSACTION
 
 --------------------------------------
