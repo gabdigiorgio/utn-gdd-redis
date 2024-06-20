@@ -103,7 +103,6 @@ GO
 CREATE TABLE REDIS.Promocion_Por_Producto (
     producto_id DECIMAL(18,0), --FK,
     promocion_codigo NVARCHAR(255), --FK
-    promo_aplicada_descuento DECIMAL(18,2),
     promocion_fecha_inicio DATETIME,
     promocion_fecha_fin DATETIME,
     PRIMARY KEY (producto_id, promocion_codigo)
@@ -228,6 +227,14 @@ CREATE TABLE REDIS.Ticket_Detalle (
 	cantidad DECIMAL(18,0),
 	precio_unitario DECIMAL(18,2),
 	total_producto DECIMAL(18,2)
+)
+GO
+
+CREATE TABLE REDIS.Promocion_Por_Ticket (
+	promocion_codigo NVARCHAR(255) NOT NULL,
+	ticket_detalle_id DECIMAL(18,0) NOT NULL,
+	promo_aplicada_descuento DECIMAL(18,2) NOT NULL
+	PRIMARY KEY (promocion_codigo, ticket_detalle_id)
 )
 GO
 
@@ -639,7 +646,6 @@ BEGIN
         SELECT 
             p.producto_id,
             PROMO_CODIGO,
-            PROMO_APLICADA_DESCUENTO,
             PROMOCION_FECHA_INICIO,
             PROMOCION_FECHA_FIN,
             ROW_NUMBER() OVER (PARTITION BY p.producto_id, PROMO_CODIGO ORDER BY PROMO_APLICADA_DESCUENTO DESC) AS rn
@@ -655,7 +661,6 @@ BEGIN
     SELECT
         producto_id,
         PROMO_CODIGO,
-        PROMO_APLICADA_DESCUENTO,
         PROMOCION_FECHA_INICIO,
         PROMOCION_FECHA_FIN
     FROM CTE
