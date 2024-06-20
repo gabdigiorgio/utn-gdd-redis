@@ -14,6 +14,7 @@ GO
 -------------- DROP TABLES --------------
 -----------------------------------------
 
+IF OBJECT_ID('REDIS.Promocion_Por_Ticket', 'U') IS NOT NULL DROP TABLE REDIS.Promocion_Por_Ticket;
 IF OBJECT_ID('REDIS.Super', 'U') IS NOT NULL DROP TABLE REDIS.Super;
 IF OBJECT_ID('REDIS.Promocion_Por_Producto', 'U') IS NOT NULL DROP TABLE REDIS.Promocion_Por_Producto;
 IF OBJECT_ID('REDIS.Producto', 'U') IS NOT NULL DROP TABLE REDIS.Producto;
@@ -229,6 +230,8 @@ CREATE TABLE REDIS.Ticket_Detalle (
 	total_producto DECIMAL(18,2)
 )
 GO
+
+SELECT * FROM REDIS.Ticket_Detalle
 
 CREATE TABLE REDIS.Promocion_Por_Ticket (
 	promocion_codigo NVARCHAR(255) NOT NULL,
@@ -590,6 +593,31 @@ BEGIN
 END
 GO
 
+CREATE PROCEDURE REDIS.migrar_Regla AS
+BEGIN
+	INSERT INTO REDIS.Regla(
+        regla_descripcion,
+        regla_cant_max_prod,
+        regla_aplica_misma_marca,
+		regla_aplica_mismo_prod,
+		regla_cant_aplica_descuento,
+		regla_cant_aplicable_regla,
+		regla_descuento_aplicable_prod
+    )
+	SELECT DISTINCT
+		REGLA_DESCRIPCION,
+		REGLA_CANT_MAX_PROD,
+		REGLA_APLICA_MISMA_MARCA,
+		REGLA_APLICA_MISMO_PROD,
+		REGLA_CANT_APLICA_DESCUENTO,
+		REGLA_CANT_APLICABLE_REGLA,
+		REGLA_DESCUENTO_APLICABLE_PROD
+	FROM 
+		gd_esquema.Maestra
+	WHERE REGLA_DESCRIPCION IS NOT NULL
+END
+GO
+
 CREATE PROCEDURE REDIS.migrar_Promocion AS
 BEGIN
 	INSERT INTO REDIS.Promocion 
@@ -690,6 +718,38 @@ BEGIN
 END
 GO
 
+CREATE PROCEDURE REDIS.migrar_Promocion_Por_Ticket AS
+BEGIN
+	INSERT INTO REDIS.Promocion_Por_Ticket 
+	SELECT 
+		t.ticket_detalle_id,
+		p.promocion_codigo,
+		m.PROMO_APLICADA_DESCUENTO
+	FROM 
+		gd_esquema.Maestra m,
+		REDIS.Ticket_Detalle t,
+		REDIS.Promocion p,
+		REDIS.Producto prod
+	WHERE 
+		PROMO_APLICADA_DESCUENTO IS NOT NULL
+		AND PROMO_APLICADA_DESCUENTO > 0
+		AND t.ticket_numero = m.TICKET_NUMERO
+		AND m.PRODUCTO_NOMBRE = prod.producto_codigo
+		AND t.producto_id = prod.producto_id
+		AND p.promocion_codigo = m.PROMO_CODIGO
+	GROUP BY 
+		t.ticket_detalle_id, 
+		p.promocion_codigo, 
+		m.PROMO_APLICADA_DESCUENTO
+	ORDER BY t.ticket_detalle_id
+END
+GO
+
+SELECT PRODUCTO_NOMBRE, PROMO_APLICADA_DESCUENTO, TICKET_NUMERO FROM gd_esquema.Maestra
+WHERE PROMO_APLICADA_DESCUENTO IS NOT NULL
+GROUP BY TICKET_NUMERO, PROMO_APLICADA_DESCUENTO, PRODUCTO_NOMBRE
+ORDER BY TICKET_NUMERO, PRODUCTO_NOMBRE
+
 --------------------------------------
 ---------- DATA MIGRATION ------------
 --------------------------------------
@@ -710,6 +770,7 @@ BEGIN TRANSACTION
 	EXECUTE REDIS.migrar_Descuento
 	EXECUTE REDIS.migrar_Envio
 	EXECUTE REDIS.migrar_Pago
+	EXECUTE REDIS.migrar_Regla
 	EXECUTE REDIS.migrar_Promocion
 	EXECUTE REDIS.migrar_Marca_Producto
 	EXECUTE REDIS.migrar_Producto
@@ -736,11 +797,13 @@ DROP PROCEDURE REDIS.migrar_Detalle_De_Pago;
 DROP PROCEDURE REDIS.migrar_Descuento;
 DROP PROCEDURE REDIS.migrar_Envio;
 DROP PROCEDURE REDIS.migrar_Pago;
+DROP PROCEDURE REDIS.migrar_Regla;
 DROP PROCEDURE REDIS.migrar_Promocion;
 DROP PROCEDURE REDIS.migrar_Marca_Producto;
 DROP PROCEDURE REDIS.migrar_Producto;
 DROP PROCEDURE REDIS.migrar_Promocion_Por_Producto;
 DROP PROCEDURE REDIS.migrar_Ticket_Detalle;
+DROP PROCEDURE REDIS.migrar_Promocion_Por_Ticket;
 
 --------------------------------------
 ------------ FOREING KEYS ------------
