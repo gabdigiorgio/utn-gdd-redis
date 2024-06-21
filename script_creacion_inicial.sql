@@ -26,6 +26,7 @@ IF OBJECT_ID('REDIS.Regla', 'U') IS NOT NULL DROP TABLE REDIS.Regla;
 IF OBJECT_ID('REDIS.Empleado', 'U') IS NOT NULL DROP TABLE REDIS.Empleado;
 IF OBJECT_ID('REDIS.Pago', 'U') IS NOT NULL DROP TABLE REDIS.Pago;
 IF OBJECT_ID('REDIS.Medio_Pago', 'U') IS NOT NULL DROP TABLE REDIS.Medio_Pago;
+IF OBJECT_ID('REDIS.Descuento_Por_Pago', 'U') IS NOT NULL DROP TABLE REDIS.Descuento_Por_Pago;
 IF OBJECT_ID('REDIS.Descuento', 'U') IS NOT NULL DROP TABLE REDIS.Descuento;
 IF OBJECT_ID('REDIS.Detalle_De_Pago', 'U') IS NOT NULL DROP TABLE REDIS.Detalle_De_Pago;
 IF OBJECT_ID('REDIS.Cliente', 'U') IS NOT NULL DROP TABLE REDIS.Cliente;
@@ -161,12 +162,18 @@ GO
 
 CREATE TABLE REDIS.Descuento (
 	descuento_codigo DECIMAL(18,0) PRIMARY KEY,
-	descuento_pago_nro DECIMAL(18,0) NOT NULL, -- FK
 	descuento_descripcion NVARCHAR(255),
 	descuento_fecha_inicio DATETIME,
 	descuento_fecha_fin DATETIME,
 	descuento_procentaje_desc DECIMAL(18,2),
 	descuento_tope DECIMAL(18,0),
+)
+GO
+
+CREATE TABLE REDIS.Descuento_Por_pago (
+	descuento_codigo DECIMAL(18,0) NOT NULL, --FK
+	descuento_pago_nro DECIMAL(18,0) NOT NULL, -- FK
+	PRIMARY KEY (descuento_codigo, descuento_pago_nro)
 )
 GO
 
@@ -524,14 +531,11 @@ BEGIN
 END
 GO
 
--- REVISAR SI HAY QUE PONER COMO PK DESCUENTO_CODIGO + PAGO_NRO
--- REVISAR LO DEL BETWEEN
 CREATE PROCEDURE REDIS.migrar_Descuento AS
 BEGIN
 	INSERT INTO REDIS.Descuento 
 	SELECT DISTINCT
 		m.DESCUENTO_CODIGO,
-		p.pago_nro,
 		m.DESCUENTO_DESCRIPCION,
 		m.DESCUENTO_FECHA_INICIO,
 		m.DESCUENTO_FECHA_FIN,
@@ -539,11 +543,31 @@ BEGIN
 		m.DESCUENTO_TOPE
 	FROM 
 		gd_esquema.Maestra m,
-		REDIS.Pago p
+		REDIS.Pago p,
+		REDIS.Medio_Pago mp
 	WHERE 
 		DESCUENTO_CODIGO IS NOT NULL
-		AND p.pago_fecha BETWEEN m.DESCUENTO_FECHA_INICIO AND m.DESCUENTO_FECHA_FIN
+END
+GO
+
+CREATE PROCEDURE REDIS.migrar_Descuento_Por_Pago AS
+BEGIN
+	INSERT INTO REDIS.Descuento_Por_pago 
+	SELECT DISTINCT
+		d.descuento_codigo,
+		p.pago_nro
+	FROM
+		gd_esquema.Maestra m,
+		REDIS.Pago p,
+		REDIS.Medio_Pago mp,
+		REDIS.Descuento d
+	WHERE 
+		m.DESCUENTO_CODIGO IS NOT NULL
 		AND p.pago_ticket_numero = m.TICKET_NUMERO
+		AND p.pago_fecha BETWEEN m.DESCUENTO_FECHA_INICIO AND m.DESCUENTO_FECHA_FIN
+		AND mp.medio_pago = m.PAGO_MEDIO_PAGO
+		AND p.pago_medio_pago = mp.medio_pago
+		AND m.DESCUENTO_CODIGO = d.descuento_codigo
 	ORDER BY pago_nro
 END
 GO
@@ -765,6 +789,7 @@ BEGIN TRANSACTION
 	EXECUTE REDIS.migrar_Envio
 	EXECUTE REDIS.migrar_Pago
 	EXECUTE REDIS.migrar_Descuento
+	EXECUTE REDIS.migrar_Descuento_Por_Pago
 	EXECUTE REDIS.migrar_Regla
 	EXECUTE REDIS.migrar_Promocion
 	EXECUTE REDIS.migrar_Marca_Producto
@@ -790,6 +815,7 @@ DROP PROCEDURE REDIS.migrar_Ticket;
 DROP PROCEDURE REDIS.migrar_Cliente;
 DROP PROCEDURE REDIS.migrar_Medio_Pago;
 DROP PROCEDURE REDIS.migrar_Detalle_De_Pago;
+DROP PROCEDURE REDIS.migrar_Descuento_Por_Pago;
 DROP PROCEDURE REDIS.migrar_Descuento;
 DROP PROCEDURE REDIS.migrar_Envio;
 DROP PROCEDURE REDIS.migrar_Pago;
