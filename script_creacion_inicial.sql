@@ -14,8 +14,14 @@ GO
 -------------- DROP TABLES --------------
 -----------------------------------------
 
+IF OBJECT_ID('REDIS.Detalle_De_Pago', 'U') IS NOT NULL DROP TABLE REDIS.Detalle_De_Pago;
+IF OBJECT_ID('REDIS.Descuento_Por_Pago', 'U') IS NOT NULL DROP TABLE REDIS.Descuento_Por_Pago;
+IF OBJECT_ID('REDIS.Pago', 'U') IS NOT NULL DROP TABLE REDIS.Pago;
+IF OBJECT_ID('REDIS.Envio', 'U') IS NOT NULL DROP TABLE REDIS.Envio;
 IF OBJECT_ID('REDIS.Promocion_Por_Ticket', 'U') IS NOT NULL DROP TABLE REDIS.Promocion_Por_Ticket;
+IF OBJECT_ID('REDIS.Ticket', 'U') IS NOT NULL DROP TABLE REDIS.Ticket;
 IF OBJECT_ID('REDIS.Super', 'U') IS NOT NULL DROP TABLE REDIS.Super;
+IF OBJECT_ID('REDIS.Ticket_Detalle', 'U') IS NOT NULL DROP TABLE REDIS.Ticket_Detalle;
 IF OBJECT_ID('REDIS.Promocion_Por_Producto', 'U') IS NOT NULL DROP TABLE REDIS.Promocion_Por_Producto;
 IF OBJECT_ID('REDIS.Producto', 'U') IS NOT NULL DROP TABLE REDIS.Producto;
 IF OBJECT_ID('REDIS.Subcategoria_Producto', 'U') IS NOT NULL DROP TABLE REDIS.Subcategoria_Producto;
@@ -24,15 +30,9 @@ IF OBJECT_ID('REDIS.Marca_Producto', 'U') IS NOT NULL DROP TABLE REDIS.Marca_Pro
 IF OBJECT_ID('REDIS.Promocion', 'U') IS NOT NULL DROP TABLE REDIS.Promocion;
 IF OBJECT_ID('REDIS.Regla', 'U') IS NOT NULL DROP TABLE REDIS.Regla;
 IF OBJECT_ID('REDIS.Empleado', 'U') IS NOT NULL DROP TABLE REDIS.Empleado;
-IF OBJECT_ID('REDIS.Pago', 'U') IS NOT NULL DROP TABLE REDIS.Pago;
 IF OBJECT_ID('REDIS.Medio_Pago', 'U') IS NOT NULL DROP TABLE REDIS.Medio_Pago;
-IF OBJECT_ID('REDIS.Descuento_Por_Pago', 'U') IS NOT NULL DROP TABLE REDIS.Descuento_Por_Pago;
 IF OBJECT_ID('REDIS.Descuento', 'U') IS NOT NULL DROP TABLE REDIS.Descuento;
-IF OBJECT_ID('REDIS.Detalle_De_Pago', 'U') IS NOT NULL DROP TABLE REDIS.Detalle_De_Pago;
 IF OBJECT_ID('REDIS.Cliente', 'U') IS NOT NULL DROP TABLE REDIS.Cliente;
-IF OBJECT_ID('REDIS.Envio', 'U') IS NOT NULL DROP TABLE REDIS.Envio;
-IF OBJECT_ID('REDIS.Ticket', 'U') IS NOT NULL DROP TABLE REDIS.Ticket;
-IF OBJECT_ID('REDIS.Ticket_Detalle', 'U') IS NOT NULL DROP TABLE REDIS.Ticket_Detalle;
 IF OBJECT_ID('REDIS.Caja', 'U') IS NOT NULL DROP TABLE REDIS.Caja;
 IF OBJECT_ID('REDIS.Sucursal', 'U') IS NOT NULL DROP TABLE REDIS.Sucursal;
 IF OBJECT_ID('REDIS.Localidad', 'U') IS NOT NULL DROP TABLE REDIS.Localidad;
@@ -147,7 +147,7 @@ CREATE TABLE REDIS.Pago (
 	pago_nro DECIMAL(18,0) IDENTITY PRIMARY KEY,
 	pago_fecha DATETIME,
 	pago_importe DECIMAL(18,2),
-	pago_descuento_aplicado DECIMAL(18,2), --FK
+	pago_descuento_aplicado DECIMAL(18,2),
 	pago_ticket_numero DECIMAL(18,0), --FK
 	pago_detalle_de_pago_id  DECIMAL(18,0),--FK
 	pago_medio_pago NVARCHAR(255) --FK,
@@ -582,16 +582,18 @@ BEGIN
 		ENVIO_HORA_FIN,
 		ENVIO_FECHA_ENTREGA,
 		ENVIO_ESTADO,
-		TICKET_NUMERO,
+		t.ticket_id,
 		c.cliente_dni
 	FROM 
 		gd_esquema.Maestra m,
-		REDIS.Cliente c
+		REDIS.Cliente c,
+		REDIS.Ticket t
 	WHERE 
 		ENVIO_COSTO IS NOT NULL
 		AND c.cliente_dni = m.CLIENTE_DNI
+		AND t.ticket_numero = m.TICKET_NUMERO
 	ORDER BY 
-		TICKET_NUMERO
+		m.TICKET_NUMERO
 END
 GO
 
@@ -602,7 +604,7 @@ BEGIN
 		PAGO_FECHA,
 		PAGO_IMPORTE,
 		PAGO_DESCUENTO_APLICADO,
-		t.ticket_numero, 
+		t.ticket_id, 
     CASE 
         WHEN m.PAGO_MEDIO_PAGO = 'Efectivo' THEN NULL
         ELSE dp.detalle_de_pago_id 
@@ -616,6 +618,7 @@ BEGIN
 	WHERE 
 		PAGO_MEDIO_PAGO IS NOT NULL
 		AND t.ticket_numero = m.TICKET_NUMERO
+	ORDER BY t.ticket_numero
 END
 GO
 
@@ -727,7 +730,7 @@ BEGIN
 	INSERT INTO REDIS.Ticket_Detalle 
 	SELECT DISTINCT
 		p.producto_id,
-		t.ticket_numero,
+		t.ticket_id,
 		TICKET_DET_CANTIDAD,
 		TICKET_DET_PRECIO,
 		TICKET_DET_TOTAL
@@ -739,8 +742,6 @@ BEGIN
 		m.PRODUCTO_NOMBRE = p.producto_codigo
 		AND m.PRODUCTO_MARCA = p.producto_marca
 		AND t.ticket_numero = m.TICKET_NUMERO
-	ORDER BY 
-		ticket_numero
 END
 GO
 
@@ -862,11 +863,7 @@ ALTER TABLE REDIS.Empleado
 ADD FOREIGN KEY (empleado_sucursal_id) REFERENCES REDIS.Sucursal(sucursal_id)
 
 ALTER TABLE REDIS.Pago
-ADD FOREIGN KEY (pago_ticket_numero) REFERENCES REDIS.Ticket (ticket_numero)
--- ARREGLAR
-
-ALTER TABLE REDIS.Descuento
-ADD FOREIGN KEY (descuento_medio_de_pago) REFERENCES REDIS.Medio_Pago (medio_pago)
+ADD FOREIGN KEY (pago_ticket_numero) REFERENCES REDIS.Ticket (ticket_id)
 
 ALTER TABLE REDIS.Detalle_De_Pago
 ADD FOREIGN KEY (detalle_de_pago_cliente_dni) REFERENCES REDIS.Cliente (cliente_dni)
@@ -874,9 +871,8 @@ ADD FOREIGN KEY (detalle_de_pago_cliente_dni) REFERENCES REDIS.Cliente (cliente_
 ALTER TABLE REDIS.Cliente
 ADD FOREIGN KEY (cliente_localidad) REFERENCES REDIS.Localidad (localidad_id)
 
---ALTER TABLE REDIS.Envio
---ADD FOREIGN KEY (envio_ticket_numero) REFERENCES REDIS.Ticket (ticket_numero)
--- ARREGLAR
+ALTER TABLE REDIS.Envio
+ADD FOREIGN KEY (envio_ticket_numero) REFERENCES REDIS.Ticket (ticket_id)
 
 ALTER TABLE REDIS.Envio
 ADD FOREIGN KEY (envio_cliente_dni) REFERENCES REDIS.Cliente (cliente_dni)
@@ -890,9 +886,8 @@ ADD FOREIGN KEY (ticket_caja_numero, ticket_sucursal_id) REFERENCES REDIS.Caja (
 ALTER TABLE REDIS.Ticket
 ADD FOREIGN KEY (ticket_empleado_legajo) REFERENCES REDIS.Empleado (empleado_legajo)
 
---ALTER TABLE REDIS.Ticket_Detalle
---ADD FOREIGN KEY (ticket_numero) REFERENCES REDIS.Ticket (ticket_numero)
--- ARREGLAR
+ALTER TABLE REDIS.Ticket_Detalle
+ADD FOREIGN KEY (ticket_numero) REFERENCES REDIS.Ticket (ticket_id)
 
 ALTER TABLE REDIS.Ticket_Detalle
 ADD FOREIGN KEY (producto_id) REFERENCES REDIS.Producto (producto_id)
