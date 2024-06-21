@@ -161,7 +161,7 @@ GO
 
 CREATE TABLE REDIS.Descuento (
 	descuento_codigo DECIMAL(18,0) PRIMARY KEY,
-	descuento_medio_de_pago NVARCHAR(255) NOT NULL, -- FK
+	descuento_pago_nro DECIMAL(18,0) NOT NULL, -- FK
 	descuento_descripcion NVARCHAR(255),
 	descuento_fecha_inicio DATETIME,
 	descuento_fecha_fin DATETIME,
@@ -524,23 +524,27 @@ BEGIN
 END
 GO
 
+-- REVISAR SI HAY QUE PONER COMO PK DESCUENTO_CODIGO + PAGO_NRO
+-- REVISAR LO DEL BETWEEN
 CREATE PROCEDURE REDIS.migrar_Descuento AS
 BEGIN
 	INSERT INTO REDIS.Descuento 
 	SELECT DISTINCT
-		DESCUENTO_CODIGO,
-		mp.medio_pago,
-		DESCUENTO_DESCRIPCION,
-		DESCUENTO_FECHA_INICIO,
-		DESCUENTO_FECHA_FIN,
-		DESCUENTO_PORCENTAJE_DESC,
-		DESCUENTO_TOPE
+		m.DESCUENTO_CODIGO,
+		p.pago_nro,
+		m.DESCUENTO_DESCRIPCION,
+		m.DESCUENTO_FECHA_INICIO,
+		m.DESCUENTO_FECHA_FIN,
+		m.DESCUENTO_PORCENTAJE_DESC,
+		m.DESCUENTO_TOPE
 	FROM 
 		gd_esquema.Maestra m,
-		REDIS.Medio_Pago mp
+		REDIS.Pago p
 	WHERE 
 		DESCUENTO_CODIGO IS NOT NULL
-		AND mp.medio_pago = m.PAGO_MEDIO_PAGO
+		AND p.pago_fecha BETWEEN m.DESCUENTO_FECHA_INICIO AND m.DESCUENTO_FECHA_FIN
+		AND p.pago_ticket_numero = m.TICKET_NUMERO
+	ORDER BY pago_nro
 END
 GO
 
@@ -758,9 +762,9 @@ BEGIN TRANSACTION
 	EXECUTE REDIS.migrar_Cliente
 	EXECUTE REDIS.migrar_Medio_Pago
 	EXECUTE REDIS.migrar_Detalle_De_Pago
-	EXECUTE REDIS.migrar_Descuento
 	EXECUTE REDIS.migrar_Envio
 	EXECUTE REDIS.migrar_Pago
+	EXECUTE REDIS.migrar_Descuento
 	EXECUTE REDIS.migrar_Regla
 	EXECUTE REDIS.migrar_Promocion
 	EXECUTE REDIS.migrar_Marca_Producto
