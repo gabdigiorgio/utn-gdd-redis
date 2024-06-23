@@ -749,24 +749,28 @@ CREATE PROCEDURE REDIS.migrar_Promocion_Por_Ticket AS
 BEGIN
 	INSERT INTO REDIS.Promocion_Por_Ticket 
 	SELECT 
-		t.ticket_detalle_id,
+		td.ticket_detalle_id,
 		p.promocion_codigo,
 		SUM(m.PROMO_APLICADA_DESCUENTO)
 	FROM 
 		gd_esquema.Maestra m,
-		REDIS.Ticket_Detalle t,
+		REDIS.Ticket_Detalle td,
+		REDIS.Ticket t,
 		REDIS.Promocion p,
 		REDIS.Producto prod
 	WHERE 
 		PROMO_APLICADA_DESCUENTO IS NOT NULL
 		AND t.ticket_numero = m.TICKET_NUMERO
+		AND td.ticket_numero = t.ticket_id
 		AND m.PRODUCTO_NOMBRE = prod.producto_codigo
-		AND t.producto_id = prod.producto_id
+		AND td.producto_id = prod.producto_id
 		AND p.promocion_codigo = m.PROMO_CODIGO
 	GROUP BY 
-		t.ticket_detalle_id, 
-		p.promocion_codigo
-	ORDER BY t.ticket_detalle_id DESC
+		t.ticket_id,
+		td.ticket_detalle_id, 
+		p.promocion_codigo,
+		t.ticket_numero
+	ORDER BY td.ticket_detalle_id DESC
 END
 GO
 
