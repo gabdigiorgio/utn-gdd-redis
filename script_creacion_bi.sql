@@ -157,12 +157,13 @@ CREATE TABLE REDIS.BI_Hechos_Venta
 GO
 
 INSERT INTO REDIS.BI_Hechos_Venta (
-    tiempo_id, ubicacion_id, importe_venta
+    tiempo_id, ubicacion_id, importe_venta, cantidad_unidades
 )
 SELECT
     bt.tiempo_id,
     bu.ubicacion_id,
-    t.ticket_total_venta AS importe_venta
+    t.ticket_total_venta AS importe_venta,
+	SUM(td.cantidad) AS cantidad_unidades
 FROM 
 	REDIS.Ticket t
 	JOIN REDIS.Sucursal s ON t.ticket_sucursal_id = s.sucursal_id
@@ -172,6 +173,11 @@ FROM
 		AND MONTH(t.ticket_fecha_hora) = bt.mes
 	JOIN REDIS.BI_Ubicacion bu ON l.localidad_nombre = bu.localidad_nombre
 		AND p.provincia_nombre = bu.provincia_nombre
+	JOIN REDIS.Ticket_Detalle td ON td.ticket_numero = t.ticket_id
+GROUP BY
+    bt.tiempo_id,
+    bu.ubicacion_id,
+    t.ticket_total_venta
 GO
 
 --------------------------------------
