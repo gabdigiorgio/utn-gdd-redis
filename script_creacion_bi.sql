@@ -102,6 +102,16 @@ SELECT DISTINCT
     END AS rango_etario
 FROM REDIS.Cliente
 
+INSERT INTO REDIS.BI_Turno (turno_descripcion)
+SELECT DISTINCT
+    CASE
+        WHEN DATEPART(HOUR, ticket_fecha_hora) >= 8 AND DATEPART(HOUR, ticket_fecha_hora) < 12 THEN '08:00 - 12:00'
+        WHEN DATEPART(HOUR, ticket_fecha_hora) >= 12 AND DATEPART(HOUR, ticket_fecha_hora) < 16 THEN '12:00 - 16:00'
+        WHEN DATEPART(HOUR, ticket_fecha_hora) >= 16 AND DATEPART(HOUR, ticket_fecha_hora) < 20 THEN '16:00 - 20:00'
+        ELSE 'Otros'
+    END AS turno
+FROM REDIS.Ticket
+
 --------------------------------------
 --------- FACTS TABLES  --------------
 --------------------------------------
