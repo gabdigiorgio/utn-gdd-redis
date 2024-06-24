@@ -13,6 +13,7 @@ GO
 
 -- Vistas
 IF OBJECT_ID('REDIS.V_Ticket_Promedio_Mensual', 'V') IS NOT NULL DROP VIEW REDIS.V_Ticket_Promedio_Mensual;
+IF OBJECT_ID('REDIS.V_Cantidad_Unidades_Promedio', 'V') IS NOT NULL DROP VIEW REDIS.V_Cantidad_Unidades_Promedio;
 
 -- Hechos
 IF OBJECT_ID('REDIS.BI_Hechos_Venta', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Venta;
@@ -157,11 +158,18 @@ CREATE TABLE REDIS.BI_Hechos_Venta
 GO
 
 INSERT INTO REDIS.BI_Hechos_Venta (
-    tiempo_id, ubicacion_id, importe_venta, cantidad_unidades
+    tiempo_id, ubicacion_id, turno_id, importe_venta, cantidad_unidades
 )
 SELECT
     bt.tiempo_id,
     bu.ubicacion_id,
+	(SELECT turno_id FROM REDIS.BI_Turno 
+     WHERE turno_descripcion = 
+	 CASE 
+		WHEN DATEPART(HOUR, t.ticket_fecha_hora) BETWEEN 8 AND 12 THEN '08:00 - 12:00'
+		WHEN DATEPART(HOUR, t.ticket_fecha_hora) BETWEEN 12 AND 16 THEN '12:00 - 16:00'
+		WHEN DATEPART(HOUR, t.ticket_fecha_hora) BETWEEN 16 AND 20 THEN '16:00 - 20:00'
+    END) AS ticket_turno,
     t.ticket_total_venta AS importe_venta,
 	SUM(td.cantidad) AS cantidad_unidades
 FROM 
@@ -177,7 +185,8 @@ FROM
 GROUP BY
     bt.tiempo_id,
     bu.ubicacion_id,
-    t.ticket_total_venta
+    t.ticket_total_venta,
+	t.ticket_fecha_hora
 GO
 
 --------------------------------------
@@ -201,3 +210,22 @@ GROUP BY
     bt.anio,
     bt.mes
 GO
+
+CREATE VIEW REDIS.V_Cantidad_Unidades_Promedio AS
+SELECT
+    bt.anio AS Anio,
+    bt.cuatrimestre AS Cuatrimestre,
+    bt.mes AS Mes,
+    btu.turno_descripcion AS Turno,
+    AVG(hv.cantidad_unidades) AS Cantidad_Unidades_Promedio
+FROM
+    REDIS.BI_Hechos_Venta hv
+JOIN
+    REDIS.BI_Tiempo bt ON hv.tiempo_id = bt.tiempo_id
+JOIN
+    REDIS.BI_Turno btu ON hv.turno_id = btu.turno_id
+GROUP BY
+    bt.anio,
+    bt.cuatrimestre,
+    bt.mes,
+    btu.turno_descripcion
