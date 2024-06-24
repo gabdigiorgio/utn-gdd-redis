@@ -102,6 +102,10 @@ SELECT DISTINCT
     END AS rango_etario
 FROM REDIS.Cliente
 
+INSERT INTO REDIS.BI_Medio_De_Pago(medio_de_pago_descripcion)
+SELECT DISTINCT medio_pago
+FROM REDIS.Medio_Pago
+
 INSERT INTO REDIS.BI_Turno (turno_descripcion)
 SELECT DISTINCT
     CASE
