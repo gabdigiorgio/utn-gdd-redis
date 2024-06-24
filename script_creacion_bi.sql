@@ -60,17 +60,28 @@ CREATE TABLE REDIS.BI_Turno
 --------- INSERT DATA  ---------------
 --------------------------------------
 
-INSERT INTO REDIS.BI_Tiempo(ANIO, CUATRIMESTRE, MES)
+INSERT INTO REDIS.BI_Tiempo(anio, cuatrimestre, mes)
 SELECT
-    YEAR(t.ticket_fecha_hora) AS ANIO,
-    DATEPART(QUARTER, t.ticket_fecha_hora) AS CUATRIMESTRE,
-    DATEPART(MONTH, t.ticket_fecha_hora) AS MES
+    YEAR(t.ticket_fecha_hora) AS anio,
+    DATEPART(QUARTER, t.ticket_fecha_hora) AS cuatrimestre,
+    DATEPART(MONTH, t.ticket_fecha_hora) AS mes
 FROM REDIS.Ticket t
 GROUP BY 
     YEAR(t.ticket_fecha_hora), 
     DATEPART(QUARTER, t.ticket_fecha_hora), 
     DATEPART(MONTH, t.ticket_fecha_hora)
-ORDER BY MES
+ORDER BY mes
+
+INSERT INTO REDIS.BI_Ubicacion(localidad_nombre, provincia_nombre)
+SELECT DISTINCT
+	l.localidad_nombre,
+	p.provincia_nombre
+FROM
+	REDIS.Sucursal s
+JOIN
+	REDIS.Localidad l ON s.sucursal_localidad = l.localidad_id
+JOIN
+	REDIS.Provincia p ON l.localidad_provincia = p.provincia_id
 
 --------------------------------------
 --------- FACTS TABLES  --------------
