@@ -56,6 +56,26 @@ CREATE TABLE REDIS.BI_Turno
 	turno_descripcion NVARCHAR(255)
 )
 
+--------------------------------------
+--------- INSERT DATA  ---------------
+--------------------------------------
+
+INSERT INTO REDIS.BI_Tiempo(ANIO, CUATRIMESTRE, MES)
+SELECT
+    YEAR(t.ticket_fecha_hora) AS ANIO,
+    DATEPART(QUARTER, t.ticket_fecha_hora) AS CUATRIMESTRE,
+    DATEPART(MONTH, t.ticket_fecha_hora) AS MES
+FROM REDIS.Ticket t
+GROUP BY 
+    YEAR(t.ticket_fecha_hora), 
+    DATEPART(QUARTER, t.ticket_fecha_hora), 
+    DATEPART(MONTH, t.ticket_fecha_hora)
+ORDER BY MES
+
+--------------------------------------
+--------- FACTS TABLES  --------------
+--------------------------------------
+
 CREATE TABLE REDIS.BI_Hechos_Venta
 (
 	venta_id INT IDENTITY PRIMARY KEY,
