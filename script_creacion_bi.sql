@@ -83,6 +83,25 @@ JOIN
 JOIN
 	REDIS.Provincia p ON l.localidad_provincia = p.provincia_id
 
+INSERT INTO REDIS.BI_Rango_Etario(rango_descripcion)
+SELECT DISTINCT
+    CASE 
+        WHEN DATEDIFF(YEAR, empleado_fecha_nacimiento, GETDATE()) < 25 THEN '< 25'
+        WHEN DATEDIFF(YEAR, empleado_fecha_nacimiento, GETDATE()) BETWEEN 25 AND 35 THEN '25 - 35'
+        WHEN DATEDIFF(YEAR, empleado_fecha_nacimiento, GETDATE()) BETWEEN 35 AND 50 THEN '35 - 50'
+        ELSE '> 50'
+    END AS rango_etario
+FROM REDIS.Empleado
+UNION
+SELECT DISTINCT
+    CASE 
+        WHEN DATEDIFF(YEAR, cliente_fecha_nacimiento, GETDATE()) < 25 THEN '< 25'
+        WHEN DATEDIFF(YEAR, cliente_fecha_nacimiento, GETDATE()) BETWEEN 25 AND 35 THEN '25 - 35'
+        WHEN DATEDIFF(YEAR, cliente_fecha_nacimiento, GETDATE()) BETWEEN 35 AND 50 THEN '35 - 50'
+        ELSE '> 50'
+    END AS rango_etario
+FROM REDIS.Cliente
+
 --------------------------------------
 --------- FACTS TABLES  --------------
 --------------------------------------
