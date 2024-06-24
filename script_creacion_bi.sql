@@ -11,8 +11,13 @@ BEGIN
 END
 GO
 
+-- Vistas
+IF OBJECT_ID('REDIS.V_Ticket_Promedio_Mensual', 'V') IS NOT NULL DROP VIEW REDIS.V_Ticket_Promedio_Mensual;
+
+-- Hechos
 IF OBJECT_ID('REDIS.BI_Hechos_Venta', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Venta;
 
+-- Dimensiones
 IF OBJECT_ID('REDIS.BI_Tiempo', 'U') IS NOT NULL DROP TABLE REDIS.BI_Tiempo;
 IF OBJECT_ID('REDIS.BI_Ubicacion', 'U') IS NOT NULL DROP TABLE REDIS.BI_Ubicacion;
 IF OBJECT_ID('REDIS.BI_Rango_Etario', 'U') IS NOT NULL DROP TABLE REDIS.BI_Rango_Etario;
@@ -30,6 +35,7 @@ CREATE TABLE REDIS.BI_Tiempo
 	mes INT,
 	cuatrimestre INT
 )
+GO
 
 CREATE TABLE REDIS.BI_Ubicacion
 (
@@ -37,27 +43,32 @@ CREATE TABLE REDIS.BI_Ubicacion
 	localidad_nombre NVARCHAR(255),
 	provincia_nombre NVARCHAR(255)
 )
+GO
 
 CREATE TABLE REDIS.BI_Rango_Etario
 (
 	rango_etario_id INT IDENTITY PRIMARY KEY,
 	rango_descripcion NVARCHAR(255)
 )
+GO
 
 CREATE TABLE REDIS.BI_Medio_De_Pago
 (
 	medio_de_pago_id INT IDENTITY PRIMARY KEY,
 	medio_de_pago_descripcion NVARCHAR(255)
 )
+GO
 
 CREATE TABLE REDIS.BI_Turno
 (
 	turno_id INT IDENTITY PRIMARY KEY,
 	turno_descripcion NVARCHAR(255)
 )
+GO
 
 --------------------------------------
---------- INSERT DATA  ---------------
+--------- INSERT DATA ----------------
+--------- DIMENSIONS -----------------
 --------------------------------------
 
 INSERT INTO REDIS.BI_Tiempo(anio, cuatrimestre, mes)
@@ -71,6 +82,7 @@ GROUP BY
     DATEPART(QUARTER, t.ticket_fecha_hora), 
     DATEPART(MONTH, t.ticket_fecha_hora)
 ORDER BY mes
+GO
 
 INSERT INTO REDIS.BI_Ubicacion(localidad_nombre, provincia_nombre)
 SELECT DISTINCT
@@ -82,6 +94,7 @@ JOIN
 	REDIS.Localidad l ON s.sucursal_localidad = l.localidad_id
 JOIN
 	REDIS.Provincia p ON l.localidad_provincia = p.provincia_id
+GO
 
 INSERT INTO REDIS.BI_Rango_Etario(rango_descripcion)
 SELECT DISTINCT
@@ -101,10 +114,12 @@ SELECT DISTINCT
         ELSE '> 50'
     END AS rango_etario
 FROM REDIS.Cliente
+GO
 
 INSERT INTO REDIS.BI_Medio_De_Pago(medio_de_pago_descripcion)
 SELECT DISTINCT medio_pago
 FROM REDIS.Medio_Pago
+GO
 
 INSERT INTO REDIS.BI_Turno (turno_descripcion)
 SELECT DISTINCT
@@ -115,6 +130,7 @@ SELECT DISTINCT
         ELSE 'Otros'
     END AS turno
 FROM REDIS.Ticket
+GO
 
 --------------------------------------
 --------- FACTS TABLES  --------------
@@ -138,3 +154,44 @@ CREATE TABLE REDIS.BI_Hechos_Venta
 	FOREIGN KEY (turno_id) REFERENCES REDIS.BI_Turno(turno_id),
 	FOREIGN KEY (medio_de_pago_id) REFERENCES REDIS.BI_Medio_De_Pago(medio_de_pago_id),
 )
+GO
+
+INSERT INTO REDIS.BI_Hechos_Venta (
+    tiempo_id, ubicacion_id, importe_venta
+)
+SELECT
+    bt.tiempo_id,
+    bu.ubicacion_id,
+    t.ticket_total_venta AS importe_venta
+FROM 
+	REDIS.Ticket t
+	JOIN REDIS.Sucursal s ON t.ticket_sucursal_id = s.sucursal_id
+	JOIN REDIS.Localidad l ON s.sucursal_localidad = l.localidad_id
+	JOIN REDIS.Provincia p ON l.localidad_provincia = p.provincia_id
+	JOIN REDIS.BI_Tiempo bt ON YEAR(t.ticket_fecha_hora) = bt.anio
+		AND MONTH(t.ticket_fecha_hora) = bt.mes
+	JOIN REDIS.BI_Ubicacion bu ON l.localidad_nombre = bu.localidad_nombre
+		AND p.provincia_nombre = bu.provincia_nombre
+GO
+
+--------------------------------------
+--------- VIEWS  ---------------------
+--------------------------------------
+
+CREATE VIEW REDIS.V_Ticket_Promedio_Mensual AS
+SELECT
+    BU.localidad_nombre AS Localidad,
+    bt.anio AS Anio,
+    bt.mes AS Mes,
+    AVG(hv.importe_venta) AS Ticket_Promedio
+FROM
+    REDIS.BI_Hechos_Venta hv
+JOIN
+    REDIS.BI_Tiempo bt ON hv.tiempo_id = bt.tiempo_id
+JOIN
+    REDIS.BI_Ubicacion BU ON hv.ubicacion_id = BU.ubicacion_id
+GROUP BY
+    bu.localidad_nombre,
+    bt.anio,
+    bt.mes
+GO
