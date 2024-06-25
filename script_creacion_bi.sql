@@ -158,7 +158,7 @@ CREATE TABLE REDIS.BI_Hechos_Venta
 GO
 
 INSERT INTO REDIS.BI_Hechos_Venta (
-    tiempo_id, ubicacion_id, turno_id, importe_venta, cantidad_unidades
+    tiempo_id, ubicacion_id, turno_id, importe_venta, cantidad_unidades, rango_etario_empleado_id
 )
 SELECT
     bt.tiempo_id,
@@ -171,7 +171,13 @@ SELECT
 		WHEN DATEPART(HOUR, t.ticket_fecha_hora) BETWEEN 16 AND 20 THEN '16:00 - 20:00'
     END) AS ticket_turno,
     t.ticket_total_venta AS importe_venta,
-	SUM(td.cantidad) AS cantidad_unidades
+	SUM(td.cantidad) AS cantidad_unidades,
+	CASE 
+        WHEN DATEDIFF(YEAR, e.empleado_fecha_nacimiento, GETDATE()) < 25 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '< 25')
+        WHEN DATEDIFF(YEAR, e.empleado_fecha_nacimiento, GETDATE()) BETWEEN 25 AND 35 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '25 - 35')
+        WHEN DATEDIFF(YEAR, e.empleado_fecha_nacimiento, GETDATE()) BETWEEN 35 AND 50 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '35 - 50')
+        ELSE (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '> 50')
+    END AS rango_etario_empleado_id
 FROM 
 	REDIS.Ticket t
 	JOIN REDIS.Sucursal s ON t.ticket_sucursal_id = s.sucursal_id
@@ -182,11 +188,13 @@ FROM
 	JOIN REDIS.BI_Ubicacion bu ON l.localidad_nombre = bu.localidad_nombre
 		AND p.provincia_nombre = bu.provincia_nombre
 	JOIN REDIS.Ticket_Detalle td ON td.ticket_numero = t.ticket_id
+	JOIN REDIS.Empleado e ON t.ticket_empleado_legajo = e.empleado_legajo
 GROUP BY
     bt.tiempo_id,
     bu.ubicacion_id,
     t.ticket_total_venta,
-	t.ticket_fecha_hora
+	t.ticket_fecha_hora,
+	e.empleado_fecha_nacimiento
 GO
 
 --------------------------------------
