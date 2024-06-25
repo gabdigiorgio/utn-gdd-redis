@@ -24,6 +24,7 @@ IF OBJECT_ID('REDIS.BI_Ubicacion', 'U') IS NOT NULL DROP TABLE REDIS.BI_Ubicacio
 IF OBJECT_ID('REDIS.BI_Rango_Etario', 'U') IS NOT NULL DROP TABLE REDIS.BI_Rango_Etario;
 IF OBJECT_ID('REDIS.BI_Medio_De_Pago', 'U') IS NOT NULL DROP TABLE REDIS.BI_Medio_De_Pago;
 IF OBJECT_ID('REDIS.BI_Turno', 'U') IS NOT NULL DROP TABLE REDIS.BI_Turno;
+IF OBJECT_ID('REDIS.BI_Tipo_Caja', 'U') IS NOT NULL DROP TABLE REDIS.BI_Tipo_Caja;
 
 --------------------------------------
 ------------ DINMENSIONS -------------
@@ -64,6 +65,13 @@ CREATE TABLE REDIS.BI_Turno
 (
 	turno_id INT IDENTITY PRIMARY KEY,
 	turno_descripcion NVARCHAR(255)
+)
+GO
+
+CREATE TABLE REDIS.BI_Tipo_Caja
+(
+	tipo_caja_id INT IDENTITY PRIMARY KEY,
+	tipo_caja_descripcion NVARCHAR(255)
 )
 GO
 
@@ -133,6 +141,13 @@ SELECT DISTINCT
 FROM REDIS.Ticket
 GO
 
+INSERT INTO REDIS.BI_Tipo_Caja(tipo_caja_descripcion)
+SELECT
+    c.caja_tipo
+FROM REDIS.Ticket t JOIN REDIS.Caja c ON c.caja_numero + c.caja_sucursal_id = t.ticket_caja_numero + t.ticket_sucursal_id
+GROUP BY c.caja_tipo
+GO
+
 --------------------------------------
 --------- FACTS TABLES  --------------
 --------------------------------------
@@ -146,6 +161,7 @@ CREATE TABLE REDIS.BI_Hechos_Venta
 	rango_etario_empleado_id INT, -- FK
 	turno_id INT, -- FK
 	medio_de_pago_id INT, -- FK
+	tipo_caja_id INT,
 	importe_venta DECIMAL(18, 2),
 	cantidad_unidades DECIMAL(18,0),
 	FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
@@ -154,11 +170,13 @@ CREATE TABLE REDIS.BI_Hechos_Venta
 	FOREIGN KEY (rango_etario_empleado_id) REFERENCES REDIS.BI_Rango_Etario(rango_etario_id),
 	FOREIGN KEY (turno_id) REFERENCES REDIS.BI_Turno(turno_id),
 	FOREIGN KEY (medio_de_pago_id) REFERENCES REDIS.BI_Medio_De_Pago(medio_de_pago_id),
+	FOREIGN KEY (tipo_caja_id) REFERENCES REDIS.BI_Tipo_Caja(tipo_caja_id)
 )
 GO
 
 INSERT INTO REDIS.BI_Hechos_Venta (
-    tiempo_id, ubicacion_id, turno_id, importe_venta, cantidad_unidades, rango_etario_empleado_id
+    tiempo_id, ubicacion_id, turno_id, importe_venta, cantidad_unidades, rango_etario_empleado_id,
+	tipo_caja_id
 )
 SELECT
     bt.tiempo_id,
@@ -177,7 +195,8 @@ SELECT
         WHEN DATEDIFF(YEAR, e.empleado_fecha_nacimiento, GETDATE()) BETWEEN 25 AND 35 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '25 - 35')
         WHEN DATEDIFF(YEAR, e.empleado_fecha_nacimiento, GETDATE()) BETWEEN 35 AND 50 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '35 - 50')
         ELSE (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '> 50')
-    END AS rango_etario_empleado_id
+    END AS rango_etario_empleado_id,
+	tc.tipo_caja_id
 FROM 
 	REDIS.Ticket t
 	JOIN REDIS.Sucursal s ON t.ticket_sucursal_id = s.sucursal_id
@@ -189,12 +208,15 @@ FROM
 		AND p.provincia_nombre = bu.provincia_nombre
 	JOIN REDIS.Ticket_Detalle td ON td.ticket_numero = t.ticket_id
 	JOIN REDIS.Empleado e ON t.ticket_empleado_legajo = e.empleado_legajo
+	JOIN REDIS.Caja c ON c.caja_numero = t.ticket_caja_numero AND c.caja_sucursal_id = t.ticket_sucursal_id
+	JOIN REDIS.BI_Tipo_Caja tc ON tc.tipo_caja_descripcion = c.caja_tipo
 GROUP BY
     bt.tiempo_id,
     bu.ubicacion_id,
     t.ticket_total_venta,
 	t.ticket_fecha_hora,
-	e.empleado_fecha_nacimiento
+	e.empleado_fecha_nacimiento,
+	tc.tipo_caja_id
 GO
 
 --------------------------------------
@@ -237,3 +259,29 @@ GROUP BY
     bt.cuatrimestre,
     bt.mes,
     btu.turno_descripcion
+GO
+
+CREATE VIEW REDIS.V_Porcentaje_Anual_De_Ventas AS
+SELECT
+    bt.anio AS Anio,
+    bt.cuatrimestre AS Cuatrimestre,
+    re.rango_descripcion AS Rango_Etario_Empleado,
+    tc.tipo_caja_descripcion AS Tipo_Caja,
+    SUM(hv.importe_venta) AS Ventas_Acumuladas,
+    SUM(SUM(hv.importe_venta)) OVER (PARTITION BY bt.anio, re.rango_descripcion, tc.tipo_caja_descripcion) AS Total_Ventas_Annio,
+    CAST((SUM(hv.importe_venta) * 100.0 / SUM(SUM(hv.importe_venta)) 
+	OVER (PARTITION BY bt.anio, re.rango_descripcion, tc.tipo_caja_descripcion)) AS DECIMAL(18,2)) AS Porcentaje_Ventas
+FROM
+    REDIS.BI_Hechos_Venta hv
+JOIN
+    REDIS.BI_Tiempo bt ON hv.tiempo_id = bt.tiempo_id
+JOIN
+    REDIS.BI_Rango_Etario re ON hv.rango_etario_empleado_id = re.rango_etario_id
+JOIN
+    REDIS.BI_Tipo_Caja tc ON hv.tipo_caja_id = tc.tipo_caja_id
+GROUP BY
+    bt.anio,
+    bt.cuatrimestre,
+    re.rango_descripcion,
+    tc.tipo_caja_descripcion
+GO
