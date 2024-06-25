@@ -12,6 +12,7 @@ END
 GO
 
 -- Vistas
+IF OBJECT_ID('REDIS.V_Porcentaje_Anual_De_Ventas', 'V') IS NOT NULL DROP VIEW REDIS.V_Porcentaje_Anual_De_Ventas;
 IF OBJECT_ID('REDIS.V_Ticket_Promedio_Mensual', 'V') IS NOT NULL DROP VIEW REDIS.V_Ticket_Promedio_Mensual;
 IF OBJECT_ID('REDIS.V_Cantidad_Unidades_Promedio', 'V') IS NOT NULL DROP VIEW REDIS.V_Cantidad_Unidades_Promedio;
 
