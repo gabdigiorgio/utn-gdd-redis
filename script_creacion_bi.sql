@@ -12,6 +12,7 @@ END
 GO
 
 -- Vistas
+IF OBJECT_ID('REDIS.V_Porcentaje_Descuento_Tickets', 'V') IS NOT NULL DROP VIEW REDIS.V_Porcentaje_Descuento_Tickets;
 IF OBJECT_ID('REDIS.V_Porcentaje_Anual_De_Ventas', 'V') IS NOT NULL DROP VIEW REDIS.V_Porcentaje_Anual_De_Ventas;
 IF OBJECT_ID('REDIS.V_Ticket_Promedio_Mensual', 'V') IS NOT NULL DROP VIEW REDIS.V_Ticket_Promedio_Mensual;
 IF OBJECT_ID('REDIS.V_Cantidad_Unidades_Promedio', 'V') IS NOT NULL DROP VIEW REDIS.V_Cantidad_Unidades_Promedio;
@@ -165,6 +166,9 @@ CREATE TABLE REDIS.BI_Hechos_Venta
 	tipo_caja_id INT,
 	importe_venta DECIMAL(18, 2),
 	cantidad_unidades DECIMAL(18,0),
+	ticket_total_descuento_aplicado_prod DECIMAL(18, 2),
+	ticket_total_descuento_aplicado_mp DECIMAL(18, 2),
+	ticket_total_descuento_aplicado_total DECIMAL(18, 2),
 	FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
 	FOREIGN KEY (ubicacion_id) REFERENCES REDIS.BI_Ubicacion(ubicacion_id),
 	FOREIGN KEY (rango_etario_cliente_id) REFERENCES REDIS.BI_Rango_Etario(rango_etario_id),
@@ -177,7 +181,8 @@ GO
 
 INSERT INTO REDIS.BI_Hechos_Venta (
     tiempo_id, ubicacion_id, turno_id, importe_venta, cantidad_unidades, rango_etario_empleado_id,
-	tipo_caja_id
+	tipo_caja_id, ticket_total_descuento_aplicado_prod, ticket_total_descuento_aplicado_mp,
+	ticket_total_descuento_aplicado_total
 )
 SELECT
     bt.tiempo_id,
@@ -197,7 +202,10 @@ SELECT
         WHEN DATEDIFF(YEAR, e.empleado_fecha_nacimiento, GETDATE()) BETWEEN 35 AND 50 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '35 - 50')
         ELSE (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '> 50')
     END AS rango_etario_empleado_id,
-	tc.tipo_caja_id
+	tc.tipo_caja_id,
+	t.ticket_total_descuento_aplicado,
+	t.ticket_total_descuento_aplicado_mp,
+	(t.ticket_total_descuento_aplicado + t.ticket_total_descuento_aplicado_mp)
 FROM 
 	REDIS.Ticket t
 	JOIN REDIS.Sucursal s ON t.ticket_sucursal_id = s.sucursal_id
@@ -217,7 +225,9 @@ GROUP BY
     t.ticket_total_venta,
 	t.ticket_fecha_hora,
 	e.empleado_fecha_nacimiento,
-	tc.tipo_caja_id
+	tc.tipo_caja_id,
+	t.ticket_total_descuento_aplicado,
+	t.ticket_total_descuento_aplicado_mp
 GO
 
 --------------------------------------
@@ -285,4 +295,20 @@ GROUP BY
     bt.cuatrimestre,
     re.rango_descripcion,
     tc.tipo_caja_descripcion
+GO
+
+CREATE VIEW REDIS.V_Porcentaje_Descuento_Tickets AS
+SELECT
+    bt.anio AS Anio,
+    bt.mes AS Mes,
+    SUM(hv.ticket_total_descuento_aplicado_total) AS Descuentos_Totales,
+    SUM(hv.importe_venta) AS Total_Ventas,
+    CAST((SUM(hv.ticket_total_descuento_aplicado_total) * 100.0 / SUM(hv.importe_venta)) AS DECIMAL(18,2)) AS Porcentaje_Descuento
+FROM
+    REDIS.BI_Hechos_Venta hv
+JOIN
+    REDIS.BI_Tiempo bt ON hv.tiempo_id = bt.tiempo_id
+GROUP BY
+    bt.anio,
+    bt.mes
 GO
