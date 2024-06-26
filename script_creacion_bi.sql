@@ -27,6 +27,7 @@ IF OBJECT_ID('REDIS.BI_Rango_Etario', 'U') IS NOT NULL DROP TABLE REDIS.BI_Rango
 IF OBJECT_ID('REDIS.BI_Medio_De_Pago', 'U') IS NOT NULL DROP TABLE REDIS.BI_Medio_De_Pago;
 IF OBJECT_ID('REDIS.BI_Turno', 'U') IS NOT NULL DROP TABLE REDIS.BI_Turno;
 IF OBJECT_ID('REDIS.BI_Tipo_Caja', 'U') IS NOT NULL DROP TABLE REDIS.BI_Tipo_Caja;
+IF OBJECT_ID('REDIS.BI_Categoria_Producto', 'U') IS NOT NULL DROP TABLE REDIS.BI_Categoria_Producto;
 
 --------------------------------------
 ------------ DINMENSIONS -------------
@@ -74,6 +75,12 @@ CREATE TABLE REDIS.BI_Tipo_Caja
 (
 	tipo_caja_id INT IDENTITY PRIMARY KEY,
 	tipo_caja_descripcion NVARCHAR(255)
+)
+GO
+
+CREATE TABLE REDIS.BI_Categoria_Producto (
+    categoria_producto_id INT IDENTITY PRIMARY KEY,
+    categoria_nombre NVARCHAR(255)
 )
 GO
 
@@ -149,6 +156,11 @@ SELECT
 FROM REDIS.Ticket t JOIN REDIS.Caja c ON c.caja_numero + c.caja_sucursal_id = t.ticket_caja_numero + t.ticket_sucursal_id
 GROUP BY c.caja_tipo
 GO
+
+INSERT INTO REDIS.BI_Categoria_Producto(categoria_nombre)
+SELECT DISTINCT
+	c.categoria_producto_nombre
+FROM REDIS.Categoria_Producto c
 
 --------------------------------------
 --------- FACTS TABLES  --------------
