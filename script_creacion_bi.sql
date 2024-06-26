@@ -245,13 +245,31 @@ GROUP BY
 GO
 
 CREATE TABLE REDIS.BI_Hechos_Promocion (
-    promocion_codigo NVARCHAR(255) PRIMARY KEY,
+    promocion_id INT IDENTITY PRIMARY KEY,
     tiempo_id INT,
     categoria_id INT,
     promo_aplicada_descuento DECIMAL(18, 2),
     FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
     FOREIGN KEY (categoria_id) REFERENCES REDIS.BI_Categoria_Producto(categoria_producto_id)
 )
+GO
+
+INSERT INTO REDIS.BI_Hechos_Promocion (tiempo_id, categoria_id, promo_aplicada_descuento)
+SELECT
+    bt.tiempo_id,
+    bicp.categoria_producto_id,
+    ppt.promo_aplicada_descuento
+FROM
+    REDIS.Promocion_Por_Ticket ppt
+    JOIN REDIS.Ticket_Detalle td ON ppt.ticket_detalle_id = td.ticket_detalle_id
+    JOIN REDIS.Ticket t ON t.ticket_id = td.ticket_numero
+    JOIN REDIS.Producto p ON p.producto_id = td.producto_id
+    JOIN REDIS.Subcategoria_Producto sc ON sc.subcategoria_producto_id = p.producto_subcategoria
+    JOIN REDIS.Categoria_Producto c ON c.categoria_producto_nombre = sc.categoria_producto
+    JOIN REDIS.BI_Tiempo bt ON bt.anio = YEAR(t.ticket_fecha_hora)
+                            AND bt.mes = DATEPART(MONTH, t.ticket_fecha_hora)
+                            AND bt.cuatrimestre = DATEPART(QUARTER, t.ticket_fecha_hora)
+    JOIN REDIS.BI_Categoria_Producto bicp ON bicp.categoria_nombre = c.categoria_producto_nombre
 GO
 
 --------------------------------------
