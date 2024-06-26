@@ -173,6 +173,13 @@ SELECT DISTINCT
 FROM REDIS.Categoria_Producto c
 GO
 
+INSERT INTO REDIS.BI_Sucursal(sucursal_nombre, sucursal_direccion)
+SELECT DISTINCT
+	s.sucursal_nombre,
+	s.sucursal_direccion
+FROM REDIS.Sucursal s
+GO
+
 --------------------------------------
 --------- FACTS TABLES  --------------
 --------------------------------------
