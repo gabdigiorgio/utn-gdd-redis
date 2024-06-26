@@ -17,6 +17,7 @@ IF OBJECT_ID('REDIS.V_Porcentaje_Anual_De_Ventas', 'V') IS NOT NULL DROP VIEW RE
 IF OBJECT_ID('REDIS.V_Ticket_Promedio_Mensual', 'V') IS NOT NULL DROP VIEW REDIS.V_Ticket_Promedio_Mensual;
 IF OBJECT_ID('REDIS.V_Cantidad_Unidades_Promedio', 'V') IS NOT NULL DROP VIEW REDIS.V_Cantidad_Unidades_Promedio;
 IF OBJECT_ID('REDIS.V_Top3_Categorias_Promociones', 'V') IS NOT NULL DROP VIEW REDIS.V_Top3_Categorias_Promociones;
+IF OBJECT_ID('REDIS.V_Porcentaje_Cumplimiento_Envios', 'V') IS NOT NULL DROP VIEW REDIS.V_Porcentaje_Cumplimiento_Envios;
 
 -- Hechos
 IF OBJECT_ID('REDIS.BI_Hechos_Venta', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Venta;
@@ -293,25 +294,28 @@ CREATE TABLE REDIS.BI_Hechos_Envio (
     envio_id INT IDENTITY PRIMARY KEY,
 	tiempo_id INT, -- FK
 	sucursal_id INT, --FK
-	envio_fecha_programada DATETIME,
+	envio_fecha_programada_minima DATETIME,
+	envio_fecha_programada_maxima DATETIME,
 	envio_fecha_entrega DATETIME
 	FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
 	FOREIGN KEY (sucursal_id) REFERENCES REDIS.BI_Sucursal(sucursal_id)
 )
 GO
 
-INSERT INTO REDIS.BI_Hechos_Envio (tiempo_id, sucursal_id, envio_fecha_programada, envio_fecha_entrega)
+INSERT INTO REDIS.BI_Hechos_Envio (tiempo_id, sucursal_id, envio_fecha_programada_minima, envio_fecha_programada_maxima,
+envio_fecha_entrega)
 SELECT
 	bt.tiempo_id,
 	bs.sucursal_id,
-	e.envio_fecha_programada,
+	DATEADD(HOUR, CAST(e.envio_hora_inicio AS INT), e.envio_fecha_programada) AS programada_minima,
+    DATEADD(HOUR, CAST(e.envio_hora_fin AS INT), e.envio_fecha_programada) AS programada_maxima,
 	e.envio_fecha_entrega
 FROM 
 	REDIS.Envio e
-	JOIN REDIS.Ticket t ON e.envio_ticket_numero = t.ticket_id
-	JOIN REDIS.BI_Tiempo bt ON bt.anio = YEAR(t.ticket_fecha_hora)
-                            AND bt.mes = DATEPART(MONTH, t.ticket_fecha_hora)
-                            AND bt.cuatrimestre = DATEPART(QUARTER, t.ticket_fecha_hora)
+	JOIN REDIS.BI_Tiempo bt ON bt.anio = YEAR(e.envio_fecha_entrega)
+                            AND bt.mes = DATEPART(MONTH, e.envio_fecha_entrega)
+                            AND bt.cuatrimestre = DATEPART(QUARTER, e.envio_fecha_entrega)
+	JOIN REDIS.Ticket t ON t.ticket_id = e.envio_ticket_numero
 	JOIN REDIS.Sucursal s ON s.sucursal_id = t.ticket_sucursal_id
 	JOIN REDIS.BI_Sucursal bs ON bs.sucursal_nombre = s.sucursal_nombre
 GO
@@ -424,3 +428,21 @@ SELECT
 FROM RankedPromociones
 WHERE rn <= 3
 GO
+
+--CREATE VIEW REDIS.V_Porcentaje_Cumplimiento_Envios AS
+--SELECT
+--    bs.sucursal_nombre AS Sucursal,
+--    bt.anio AS Anio,
+--    bt.mes AS Mes,
+--    COUNT(*) AS Total_Envios,
+--    SUM(CASE WHEN e.envio_fecha_programada <= e.envio_fecha_entrega THEN 1 ELSE 0 END) AS Envios_En_Tiempo,
+--    CAST(SUM(CASE WHEN e.envio_fecha_programada <= e.envio_fecha_entrega THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) AS Porcentaje_Cumplimiento
+--FROM 
+--    REDIS.BI_Hechos_Envio e
+--    JOIN REDIS.BI_Tiempo bt ON bt.tiempo_id = e.tiempo_id
+--    JOIN REDIS.BI_Sucursal bs ON bs.sucursal_id = e.sucursal_id
+--GROUP BY
+--    bs.sucursal_nombre,
+--    bt.anio,
+--    bt.mes
+--GO
