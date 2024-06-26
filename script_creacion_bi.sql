@@ -30,6 +30,7 @@ IF OBJECT_ID('REDIS.BI_Medio_De_Pago', 'U') IS NOT NULL DROP TABLE REDIS.BI_Medi
 IF OBJECT_ID('REDIS.BI_Turno', 'U') IS NOT NULL DROP TABLE REDIS.BI_Turno;
 IF OBJECT_ID('REDIS.BI_Tipo_Caja', 'U') IS NOT NULL DROP TABLE REDIS.BI_Tipo_Caja;
 IF OBJECT_ID('REDIS.BI_Categoria_Producto', 'U') IS NOT NULL DROP TABLE REDIS.BI_Categoria_Producto;
+IF OBJECT_ID('REDIS.BI_Sucursal', 'U') IS NOT NULL DROP TABLE REDIS.BI_Sucursal;
 
 --------------------------------------
 ------------ DINMENSIONS -------------
@@ -83,6 +84,13 @@ GO
 CREATE TABLE REDIS.BI_Categoria_Producto (
     categoria_producto_id INT IDENTITY PRIMARY KEY,
     categoria_nombre NVARCHAR(255)
+)
+GO
+
+CREATE TABLE REDIS.BI_Sucursal (
+    sucursal_id INT IDENTITY PRIMARY KEY,
+	sucursal_nombre NVARCHAR(255),
+	sucursal_direccion NVARCHAR(255)
 )
 GO
 
