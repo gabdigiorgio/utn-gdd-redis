@@ -300,6 +300,22 @@ CREATE TABLE REDIS.BI_Hechos_Envio (
 )
 GO
 
+INSERT INTO REDIS.BI_Hechos_Envio (tiempo_id, sucursal_id, envio_fecha_programada, envio_fecha_entrega)
+SELECT
+	bt.tiempo_id,
+	bs.sucursal_id,
+	e.envio_fecha_programada,
+	e.envio_fecha_entrega
+FROM 
+	REDIS.Envio e
+	JOIN REDIS.Ticket t ON e.envio_ticket_numero = t.ticket_id
+	JOIN REDIS.BI_Tiempo bt ON bt.anio = YEAR(t.ticket_fecha_hora)
+                            AND bt.mes = DATEPART(MONTH, t.ticket_fecha_hora)
+                            AND bt.cuatrimestre = DATEPART(QUARTER, t.ticket_fecha_hora)
+	JOIN REDIS.Sucursal s ON s.sucursal_id = t.ticket_sucursal_id
+	JOIN REDIS.BI_Sucursal bs ON bs.sucursal_nombre = s.sucursal_nombre
+GO
+
 --------------------------------------
 --------- VIEWS  ---------------------
 --------------------------------------
