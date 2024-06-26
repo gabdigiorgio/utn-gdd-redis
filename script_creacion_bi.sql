@@ -19,6 +19,7 @@ IF OBJECT_ID('REDIS.V_Cantidad_Unidades_Promedio', 'V') IS NOT NULL DROP VIEW RE
 
 -- Hechos
 IF OBJECT_ID('REDIS.BI_Hechos_Venta', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Venta;
+IF OBJECT_ID('REDIS.BI_Hechos_Promocion', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Promocion;
 
 -- Dimensiones
 IF OBJECT_ID('REDIS.BI_Tiempo', 'U') IS NOT NULL DROP TABLE REDIS.BI_Tiempo;
@@ -161,6 +162,7 @@ INSERT INTO REDIS.BI_Categoria_Producto(categoria_nombre)
 SELECT DISTINCT
 	c.categoria_producto_nombre
 FROM REDIS.Categoria_Producto c
+GO
 
 --------------------------------------
 --------- FACTS TABLES  --------------
@@ -240,6 +242,16 @@ GROUP BY
 	tc.tipo_caja_id,
 	t.ticket_total_descuento_aplicado,
 	t.ticket_total_descuento_aplicado_mp
+GO
+
+CREATE TABLE REDIS.BI_Hechos_Promocion (
+    promocion_codigo NVARCHAR(255) PRIMARY KEY,
+    tiempo_id INT,
+    categoria_id INT,
+    promo_aplicada_descuento DECIMAL(18, 2),
+    FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
+    FOREIGN KEY (categoria_id) REFERENCES REDIS.BI_Categoria_Producto(categoria_producto_id)
+)
 GO
 
 --------------------------------------
