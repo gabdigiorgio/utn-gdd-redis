@@ -21,6 +21,7 @@ IF OBJECT_ID('REDIS.V_Top3_Categorias_Promociones', 'V') IS NOT NULL DROP VIEW R
 -- Hechos
 IF OBJECT_ID('REDIS.BI_Hechos_Venta', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Venta;
 IF OBJECT_ID('REDIS.BI_Hechos_Promocion', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Promocion;
+IF OBJECT_ID('REDIS.BI_Hechos_Envio', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Envio;
 
 -- Dimensiones
 IF OBJECT_ID('REDIS.BI_Tiempo', 'U') IS NOT NULL DROP TABLE REDIS.BI_Tiempo;
@@ -262,8 +263,8 @@ GO
 
 CREATE TABLE REDIS.BI_Hechos_Promocion (
     promocion_id INT IDENTITY PRIMARY KEY,
-    tiempo_id INT,
-    categoria_id INT,
+    tiempo_id INT, -- FK
+    categoria_id INT, -- FK
     promo_aplicada_descuento DECIMAL(18, 2),
     FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
     FOREIGN KEY (categoria_id) REFERENCES REDIS.BI_Categoria_Producto(categoria_producto_id)
@@ -286,6 +287,17 @@ FROM
                             AND bt.mes = DATEPART(MONTH, t.ticket_fecha_hora)
                             AND bt.cuatrimestre = DATEPART(QUARTER, t.ticket_fecha_hora)
     JOIN REDIS.BI_Categoria_Producto bicp ON bicp.categoria_nombre = c.categoria_producto_nombre
+GO
+
+CREATE TABLE REDIS.BI_Hechos_Envio (
+    envio_id INT IDENTITY PRIMARY KEY,
+	tiempo_id INT, -- FK
+	sucursal_id INT, --FK
+	envio_fecha_programada DATETIME,
+	envio_fecha_entrega DATETIME
+	FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
+	FOREIGN KEY (sucursal_id) REFERENCES REDIS.BI_Sucursal(sucursal_id)
+)
 GO
 
 --------------------------------------
