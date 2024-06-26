@@ -16,6 +16,7 @@ IF OBJECT_ID('REDIS.V_Porcentaje_Descuento_Tickets', 'V') IS NOT NULL DROP VIEW 
 IF OBJECT_ID('REDIS.V_Porcentaje_Anual_De_Ventas', 'V') IS NOT NULL DROP VIEW REDIS.V_Porcentaje_Anual_De_Ventas;
 IF OBJECT_ID('REDIS.V_Ticket_Promedio_Mensual', 'V') IS NOT NULL DROP VIEW REDIS.V_Ticket_Promedio_Mensual;
 IF OBJECT_ID('REDIS.V_Cantidad_Unidades_Promedio', 'V') IS NOT NULL DROP VIEW REDIS.V_Cantidad_Unidades_Promedio;
+IF OBJECT_ID('REDIS.V_Top3_Categorias_Promociones', 'V') IS NOT NULL DROP VIEW REDIS.V_Top3_Categorias_Promociones;
 
 -- Hechos
 IF OBJECT_ID('REDIS.BI_Hechos_Venta', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Venta;
@@ -353,4 +354,30 @@ JOIN
 GROUP BY
     bt.anio,
     bt.mes
+GO
+
+CREATE VIEW REDIS.V_Top3_Categorias_Promociones AS
+WITH RankedPromociones AS (
+    SELECT
+        bt.anio,
+        bt.cuatrimestre,
+        bicp.categoria_nombre,
+        SUM(bp.promo_aplicada_descuento) AS total_descuento,
+        ROW_NUMBER() OVER (PARTITION BY bt.anio, bt.cuatrimestre ORDER BY SUM(bp.promo_aplicada_descuento) DESC) AS rn
+    FROM
+        REDIS.BI_Hechos_Promocion bp
+        JOIN REDIS.BI_Tiempo bt ON bp.tiempo_id = bt.tiempo_id
+        JOIN REDIS.BI_Categoria_Producto bicp ON bp.categoria_id = bicp.categoria_producto_id
+    GROUP BY
+        bt.anio,
+        bt.cuatrimestre,
+        bicp.categoria_nombre
+)
+SELECT
+    anio,
+    cuatrimestre,
+    categoria_nombre,
+    total_descuento
+FROM RankedPromociones
+WHERE rn <= 3
 GO
