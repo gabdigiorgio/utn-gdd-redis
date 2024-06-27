@@ -19,6 +19,7 @@ IF OBJECT_ID('REDIS.V_Cantidad_Unidades_Promedio', 'V') IS NOT NULL DROP VIEW RE
 IF OBJECT_ID('REDIS.V_Top3_Categorias_Promociones', 'V') IS NOT NULL DROP VIEW REDIS.V_Top3_Categorias_Promociones;
 IF OBJECT_ID('REDIS.V_Porcentaje_Cumplimiento_Envios', 'V') IS NOT NULL DROP VIEW REDIS.V_Porcentaje_Cumplimiento_Envios;
 IF OBJECT_ID('REDIS.V_Cantidad_Envios_Rango_Etario_Clientes', 'V') IS NOT NULL DROP VIEW REDIS.V_Cantidad_Envios_Rango_Etario_Clientes;
+IF OBJECT_ID('REDIS.V_Top5_Localidades_Mayor_Costo_Envio', 'V') IS NOT NULL DROP VIEW REDIS.V_Top5_Localidades_Mayor_Costo_Envio;
 
 -- Hechos
 IF OBJECT_ID('REDIS.BI_Hechos_Venta', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Venta;
@@ -494,4 +495,20 @@ GROUP BY
     bt.anio,
     bt.cuatrimestre,
     re.rango_descripcion
+GO
+
+CREATE VIEW REDIS.V_Top5_Localidades_Mayor_Costo_Envio AS
+SELECT TOP 5
+    bu.localidad_nombre,
+    bu.provincia_nombre,
+    SUM(be.envio_costo) AS total_envio_costo
+FROM
+    REDIS.BI_Hechos_Envio be
+JOIN
+    REDIS.BI_Ubicacion bu ON be.cliente_ubicacion_id = bu.ubicacion_id
+GROUP BY
+    bu.localidad_nombre,
+    bu.provincia_nombre
+ORDER BY
+    total_envio_costo DESC
 GO
