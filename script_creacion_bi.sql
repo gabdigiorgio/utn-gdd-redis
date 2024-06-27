@@ -331,7 +331,7 @@ SELECT
         WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) BETWEEN 35 AND 50 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '35 - 50')
         ELSE (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '> 50')
     END AS rango_etario,
-	--bu.ubicacion_id,
+	bu.ubicacion_id,
 	DATEADD(HOUR, CAST(e.envio_hora_inicio AS INT), e.envio_fecha_programada) AS programada_minima,
     DATEADD(HOUR, CAST(e.envio_hora_fin AS INT), e.envio_fecha_programada) AS programada_maxima,
 	e.envio_fecha_entrega,
@@ -345,6 +345,10 @@ FROM
 	JOIN REDIS.Sucursal s ON s.sucursal_id = t.ticket_sucursal_id
 	JOIN REDIS.BI_Sucursal bs ON bs.sucursal_nombre = s.sucursal_nombre
 	JOIN REDIS.Cliente c ON c.cliente_dni = e.envio_cliente_dni
+	JOIN REDIS.Localidad l ON l.localidad_id = c.cliente_localidad
+	JOIN REDIS.Provincia p ON p.provincia_id = l.localidad_provincia
+	JOIN REDIS.BI_Ubicacion bu ON l.localidad_nombre = bu.localidad_nombre
+		AND p.provincia_nombre = bu.provincia_nombre
 GO
 
 --------------------------------------
