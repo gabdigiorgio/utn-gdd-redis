@@ -117,14 +117,26 @@ GO
 
 INSERT INTO REDIS.BI_Ubicacion(localidad_nombre, provincia_nombre)
 SELECT DISTINCT
-	l.localidad_nombre,
-	p.provincia_nombre
+    l.localidad_nombre,
+    p.provincia_nombre
 FROM
-	REDIS.Sucursal s
+    REDIS.Sucursal s
 JOIN
-	REDIS.Localidad l ON s.sucursal_localidad = l.localidad_id
+    REDIS.Localidad l ON s.sucursal_localidad = l.localidad_id
 JOIN
-	REDIS.Provincia p ON l.localidad_provincia = p.provincia_id
+    REDIS.Provincia p ON l.localidad_provincia = p.provincia_id
+
+UNION
+
+SELECT DISTINCT
+    l.localidad_nombre,
+    p.provincia_nombre
+FROM
+    REDIS.Cliente c
+JOIN
+    REDIS.Localidad l ON c.cliente_localidad = l.localidad_id
+JOIN
+    REDIS.Provincia p ON l.localidad_provincia = p.provincia_id
 GO
 
 INSERT INTO REDIS.BI_Rango_Etario(rango_descripcion)
@@ -296,17 +308,19 @@ CREATE TABLE REDIS.BI_Hechos_Envio (
 	tiempo_id INT, -- FK
 	sucursal_id INT, --FK
 	rango_etario_cliente_id INT, --FK
+	cliente_ubicacion_id INT, --FK
 	envio_fecha_programada_minima DATETIME,
 	envio_fecha_programada_maxima DATETIME,
 	envio_fecha_entrega DATETIME,
 	envio_costo DECIMAL(18,2)
 	FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
 	FOREIGN KEY (sucursal_id) REFERENCES REDIS.BI_Sucursal(sucursal_id),
-	FOREIGN KEY (rango_etario_cliente_id) REFERENCES REDIS.BI_Rango_Etario(rango_etario_id)
+	FOREIGN KEY (rango_etario_cliente_id) REFERENCES REDIS.BI_Rango_Etario(rango_etario_id),
+	FOREIGN KEY (cliente_ubicacion_id) REFERENCES REDIS.BI_Ubicacion(ubicacion_id)
 )
 GO
 
-INSERT INTO REDIS.BI_Hechos_Envio (tiempo_id, sucursal_id, rango_etario_cliente_id,
+INSERT INTO REDIS.BI_Hechos_Envio (tiempo_id, sucursal_id, rango_etario_cliente_id, cliente_ubicacion_id,
 envio_fecha_programada_minima, envio_fecha_programada_maxima, envio_fecha_entrega, envio_costo)
 SELECT
 	bt.tiempo_id,
@@ -317,6 +331,7 @@ SELECT
         WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) BETWEEN 35 AND 50 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '35 - 50')
         ELSE (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '> 50')
     END AS rango_etario,
+	--bu.ubicacion_id,
 	DATEADD(HOUR, CAST(e.envio_hora_inicio AS INT), e.envio_fecha_programada) AS programada_minima,
     DATEADD(HOUR, CAST(e.envio_hora_fin AS INT), e.envio_fecha_programada) AS programada_maxima,
 	e.envio_fecha_entrega,
