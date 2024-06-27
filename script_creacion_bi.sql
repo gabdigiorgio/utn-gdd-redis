@@ -18,6 +18,7 @@ IF OBJECT_ID('REDIS.V_Ticket_Promedio_Mensual', 'V') IS NOT NULL DROP VIEW REDIS
 IF OBJECT_ID('REDIS.V_Cantidad_Unidades_Promedio', 'V') IS NOT NULL DROP VIEW REDIS.V_Cantidad_Unidades_Promedio;
 IF OBJECT_ID('REDIS.V_Top3_Categorias_Promociones', 'V') IS NOT NULL DROP VIEW REDIS.V_Top3_Categorias_Promociones;
 IF OBJECT_ID('REDIS.V_Porcentaje_Cumplimiento_Envios', 'V') IS NOT NULL DROP VIEW REDIS.V_Porcentaje_Cumplimiento_Envios;
+IF OBJECT_ID('REDIS.V_Cantidad_Envios_Rango_Etario_Clientes', 'V') IS NOT NULL DROP VIEW REDIS.V_Cantidad_Envios_Rango_Etario_Clientes;
 
 -- Hechos
 IF OBJECT_ID('REDIS.BI_Hechos_Venta', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Venta;
@@ -304,11 +305,18 @@ CREATE TABLE REDIS.BI_Hechos_Envio (
 )
 GO
 
-INSERT INTO REDIS.BI_Hechos_Envio (tiempo_id, sucursal_id, envio_fecha_programada_minima, envio_fecha_programada_maxima,
+INSERT INTO REDIS.BI_Hechos_Envio (tiempo_id, sucursal_id, rango_etario_cliente_id,
+envio_fecha_programada_minima, envio_fecha_programada_maxima,
 envio_fecha_entrega)
 SELECT
 	bt.tiempo_id,
 	bs.sucursal_id,
+	CASE 
+        WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) < 25 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '< 25')
+        WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) BETWEEN 25 AND 35 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '25 - 35')
+        WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) BETWEEN 35 AND 50 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '35 - 50')
+        ELSE (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '> 50')
+    END AS rango_etario,
 	DATEADD(HOUR, CAST(e.envio_hora_inicio AS INT), e.envio_fecha_programada) AS programada_minima,
     DATEADD(HOUR, CAST(e.envio_hora_fin AS INT), e.envio_fecha_programada) AS programada_maxima,
 	e.envio_fecha_entrega
@@ -320,6 +328,7 @@ FROM
 	JOIN REDIS.Ticket t ON t.ticket_id = e.envio_ticket_numero
 	JOIN REDIS.Sucursal s ON s.sucursal_id = t.ticket_sucursal_id
 	JOIN REDIS.BI_Sucursal bs ON bs.sucursal_nombre = s.sucursal_nombre
+	JOIN REDIS.Cliente c ON c.cliente_dni = e.envio_cliente_dni
 GO
 
 --------------------------------------
@@ -449,4 +458,20 @@ GROUP BY
     bs.sucursal_nombre,
     bt.anio,
     bt.mes
+GO
+
+CREATE VIEW REDIS.V_Cantidad_Envios_Rango_Etario_Clientes AS
+SELECT
+    bt.anio AS Anio,
+    bt.cuatrimestre AS Cuatrimestre,
+    re.rango_descripcion AS Rango_Etario,
+    COUNT(*) AS Cantidad_Envios
+FROM 
+    REDIS.BI_Hechos_Envio e
+    JOIN REDIS.BI_Tiempo bt ON bt.tiempo_id = e.tiempo_id
+    JOIN REDIS.BI_Rango_Etario re ON re.rango_etario_id = e.rango_etario_cliente_id
+GROUP BY
+    bt.anio,
+    bt.cuatrimestre,
+    re.rango_descripcion
 GO
