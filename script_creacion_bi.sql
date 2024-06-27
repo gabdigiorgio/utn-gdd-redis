@@ -373,6 +373,22 @@ FROM
 		AND p.provincia_nombre = bu.provincia_nombre
 GO
 
+CREATE TABLE REDIS.BI_Hechos_Pago(
+	pago_id INT IDENTITY PRIMARY KEY,
+	tiempo_id INT, -- FK
+	sucursal_id INT, -- FK
+	medio_de_pago_id INT, --FK
+	detalle_de_pago_id INT, --FK
+	rango_etario_cliente_id INT, --FK
+	pago_importe DECIMAL(18, 2)
+	FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
+	FOREIGN KEY (sucursal_id) REFERENCES REDIS.BI_Sucursal(sucursal_id),
+	FOREIGN KEY (medio_de_pago_id) REFERENCES REDIS.BI_Medio_De_Pago(medio_de_pago_id),
+	FOREIGN KEY (detalle_de_pago_id) REFERENCES REDIS.BI_Detalle_De_Pago(detalle_de_pago_id),
+	FOREIGN KEY (rango_etario_cliente_id) REFERENCES REDIS.BI_Rango_Etario(rango_etario_id)
+)
+GO
+
 --------------------------------------
 --------- VIEWS  ---------------------
 --------------------------------------
