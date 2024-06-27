@@ -298,7 +298,8 @@ CREATE TABLE REDIS.BI_Hechos_Envio (
 	rango_etario_cliente_id INT, --FK
 	envio_fecha_programada_minima DATETIME,
 	envio_fecha_programada_maxima DATETIME,
-	envio_fecha_entrega DATETIME
+	envio_fecha_entrega DATETIME,
+	envio_costo DECIMAL(18,2)
 	FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
 	FOREIGN KEY (sucursal_id) REFERENCES REDIS.BI_Sucursal(sucursal_id),
 	FOREIGN KEY (rango_etario_cliente_id) REFERENCES REDIS.BI_Rango_Etario(rango_etario_id)
@@ -306,8 +307,7 @@ CREATE TABLE REDIS.BI_Hechos_Envio (
 GO
 
 INSERT INTO REDIS.BI_Hechos_Envio (tiempo_id, sucursal_id, rango_etario_cliente_id,
-envio_fecha_programada_minima, envio_fecha_programada_maxima,
-envio_fecha_entrega)
+envio_fecha_programada_minima, envio_fecha_programada_maxima, envio_fecha_entrega, envio_costo)
 SELECT
 	bt.tiempo_id,
 	bs.sucursal_id,
@@ -319,7 +319,8 @@ SELECT
     END AS rango_etario,
 	DATEADD(HOUR, CAST(e.envio_hora_inicio AS INT), e.envio_fecha_programada) AS programada_minima,
     DATEADD(HOUR, CAST(e.envio_hora_fin AS INT), e.envio_fecha_programada) AS programada_maxima,
-	e.envio_fecha_entrega
+	e.envio_fecha_entrega,
+	e.envio_costo
 FROM 
 	REDIS.Envio e
 	JOIN REDIS.BI_Tiempo bt ON bt.anio = YEAR(e.envio_fecha_entrega)
