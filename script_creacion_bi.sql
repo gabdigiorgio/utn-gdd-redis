@@ -207,6 +207,15 @@ SELECT DISTINCT
 FROM REDIS.Sucursal s
 GO
 
+INSERT INTO REDIS.BI_Detalle_De_Pago(cantidad_de_cuotas, importe_por_cuota)
+SELECT DISTINCT
+	dp.cuotas,
+	p.pago_importe / dp.cuotas
+FROM 
+	REDIS.Detalle_De_Pago dp
+	JOIN REDIS.Pago p ON p.pago_detalle_de_pago_id = dp.detalle_de_pago_id
+GO
+
 --------------------------------------
 --------- FACTS TABLES  --------------
 --------------------------------------
