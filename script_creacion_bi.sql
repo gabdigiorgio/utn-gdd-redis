@@ -429,20 +429,22 @@ FROM RankedPromociones
 WHERE rn <= 3
 GO
 
---CREATE VIEW REDIS.V_Porcentaje_Cumplimiento_Envios AS
---SELECT
---    bs.sucursal_nombre AS Sucursal,
---    bt.anio AS Anio,
---    bt.mes AS Mes,
---    COUNT(*) AS Total_Envios,
---    SUM(CASE WHEN e.envio_fecha_programada <= e.envio_fecha_entrega THEN 1 ELSE 0 END) AS Envios_En_Tiempo,
---    CAST(SUM(CASE WHEN e.envio_fecha_programada <= e.envio_fecha_entrega THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) AS Porcentaje_Cumplimiento
---FROM 
---    REDIS.BI_Hechos_Envio e
---    JOIN REDIS.BI_Tiempo bt ON bt.tiempo_id = e.tiempo_id
---    JOIN REDIS.BI_Sucursal bs ON bs.sucursal_id = e.sucursal_id
---GROUP BY
---    bs.sucursal_nombre,
---    bt.anio,
---    bt.mes
---GO
+CREATE VIEW REDIS.V_Porcentaje_Cumplimiento_Envios AS
+SELECT
+    bs.sucursal_nombre AS Sucursal,
+    bt.anio AS Anio,
+    bt.mes AS Mes,
+    COUNT(*) AS Total_Envios,
+    SUM(CASE WHEN e.envio_fecha_entrega BETWEEN e.envio_fecha_programada_minima AND 
+	e.envio_fecha_programada_maxima THEN 1 ELSE 0 END) AS Envios_En_Tiempo,
+    CAST(SUM(CASE WHEN e.envio_fecha_entrega BETWEEN e.envio_fecha_programada_minima AND 
+	e.envio_fecha_programada_maxima THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) AS Porcentaje_Cumplimiento
+FROM 
+    REDIS.BI_Hechos_Envio e
+    JOIN REDIS.BI_Tiempo bt ON bt.tiempo_id = e.tiempo_id
+    JOIN REDIS.BI_Sucursal bs ON bs.sucursal_id = e.sucursal_id
+GROUP BY
+    bs.sucursal_nombre,
+    bt.anio,
+    bt.mes
+GO
