@@ -39,7 +39,6 @@ IF OBJECT_ID('REDIS.BI_Turno', 'U') IS NOT NULL DROP TABLE REDIS.BI_Turno;
 IF OBJECT_ID('REDIS.BI_Tipo_Caja', 'U') IS NOT NULL DROP TABLE REDIS.BI_Tipo_Caja;
 IF OBJECT_ID('REDIS.BI_Categoria_Producto', 'U') IS NOT NULL DROP TABLE REDIS.BI_Categoria_Producto;
 IF OBJECT_ID('REDIS.BI_Sucursal', 'U') IS NOT NULL DROP TABLE REDIS.BI_Sucursal;
-IF OBJECT_ID('REDIS.BI_Detalle_De_Pago', 'U') IS NOT NULL DROP TABLE REDIS.BI_Detalle_De_Pago;
 
 --------------------------------------
 ------------ DINMENSIONS -------------
@@ -100,13 +99,6 @@ CREATE TABLE REDIS.BI_Sucursal (
     sucursal_id INT IDENTITY PRIMARY KEY,
 	sucursal_nombre NVARCHAR(255),
 	sucursal_direccion NVARCHAR(255)
-)
-GO
-
-CREATE TABLE REDIS.BI_Detalle_De_Pago (
-    detalle_de_pago_id INT IDENTITY PRIMARY KEY,
-	cantidad_de_cuotas DECIMAL(18, 0),
-	importe_por_cuota DECIMAL(18, 2)
 )
 GO
 
@@ -206,15 +198,6 @@ SELECT DISTINCT
 	s.sucursal_nombre,
 	s.sucursal_direccion
 FROM REDIS.Sucursal s
-GO
-
-INSERT INTO REDIS.BI_Detalle_De_Pago(cantidad_de_cuotas, importe_por_cuota)
-SELECT DISTINCT
-	dp.cuotas,
-	p.pago_importe / dp.cuotas
-FROM 
-	REDIS.Detalle_De_Pago dp
-	JOIN REDIS.Pago p ON p.pago_detalle_de_pago_id = dp.detalle_de_pago_id
 GO
 
 --------------------------------------
@@ -379,15 +362,42 @@ CREATE TABLE REDIS.BI_Hechos_Pago(
 	tiempo_id INT, -- FK
 	sucursal_id INT, -- FK
 	medio_de_pago_id INT, --FK
-	detalle_de_pago_id INT, --FK
 	rango_etario_cliente_id INT, --FK
-	pago_importe DECIMAL(18, 2)
+	pago_importe DECIMAL(18, 2),
+	cantidad_de_cuotas DECIMAL(18, 0)
 	FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
 	FOREIGN KEY (sucursal_id) REFERENCES REDIS.BI_Sucursal(sucursal_id),
 	FOREIGN KEY (medio_de_pago_id) REFERENCES REDIS.BI_Medio_De_Pago(medio_de_pago_id),
-	FOREIGN KEY (detalle_de_pago_id) REFERENCES REDIS.BI_Detalle_De_Pago(detalle_de_pago_id),
 	FOREIGN KEY (rango_etario_cliente_id) REFERENCES REDIS.BI_Rango_Etario(rango_etario_id)
 )
+GO
+
+INSERT INTO REDIS.BI_Hechos_Pago (tiempo_id, sucursal_id, medio_de_pago_id, rango_etario_cliente_id,
+pago_importe, cantidad_de_cuotas)
+SELECT
+	bt.tiempo_id,
+	bs.sucursal_id,
+	bmp.medio_de_pago_id,
+	CASE 
+        WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) < 25 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '< 25')
+        WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) BETWEEN 25 AND 35 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '25 - 35')
+        WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) BETWEEN 35 AND 50 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '35 - 50')
+		WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) > 50 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '> 50')
+	END AS rango_etario,
+	p.pago_importe,
+	dp.cuotas
+FROM
+	REDIS.Pago p
+	JOIN REDIS.BI_Tiempo bt ON bt.anio = YEAR(p.pago_fecha)
+                            AND bt.mes = DATEPART(MONTH, p.pago_fecha)
+                            AND bt.cuatrimestre = DATEPART(QUARTER, p.pago_fecha)
+	JOIN REDIS.Ticket t ON p.pago_ticket_numero = t.ticket_id
+	JOIN REDIS.Sucursal s ON s.sucursal_id = t.ticket_sucursal_id
+	JOIN REDIS.BI_Sucursal bs ON bs.sucursal_nombre = s.sucursal_nombre
+	JOIN REDIS.Medio_Pago mp ON p.pago_medio_pago = mp.medio_pago
+	JOIN REDIS.BI_Medio_De_Pago bmp ON bmp.medio_de_pago_descripcion = mp.medio_pago
+	LEFT JOIN REDIS.Detalle_De_Pago dp ON p.pago_detalle_de_pago_id = dp.detalle_de_pago_id
+	LEFT JOIN REDIS.Cliente c ON c.cliente_dni = dp.detalle_de_pago_cliente_dni
 GO
 
 --------------------------------------
