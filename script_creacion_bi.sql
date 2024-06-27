@@ -28,6 +28,7 @@ IF OBJECT_ID('REDIS.V_Top5_Localidades_Mayor_Costo_Envio', 'V') IS NOT NULL DROP
 IF OBJECT_ID('REDIS.BI_Hechos_Venta', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Venta;
 IF OBJECT_ID('REDIS.BI_Hechos_Promocion', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Promocion;
 IF OBJECT_ID('REDIS.BI_Hechos_Envio', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Envio;
+IF OBJECT_ID('REDIS.BI_Hechos_Pago', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Pago;
 
 -- Dimensiones
 IF OBJECT_ID('REDIS.BI_Tiempo', 'U') IS NOT NULL DROP TABLE REDIS.BI_Tiempo;
