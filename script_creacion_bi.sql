@@ -15,7 +15,7 @@ GO
 IF OBJECT_ID('REDIS.V_Ticket_Promedio_Mensual', 'V') IS NOT NULL DROP VIEW REDIS.V_Ticket_Promedio_Mensual;
 IF OBJECT_ID('REDIS.V_Cantidad_Unidades_Promedio', 'V') IS NOT NULL DROP VIEW REDIS.V_Cantidad_Unidades_Promedio;
 IF OBJECT_ID('REDIS.V_Porcentaje_Anual_De_Ventas', 'V') IS NOT NULL DROP VIEW REDIS.V_Porcentaje_Anual_De_Ventas;
-IF OBJECT_ID('REDIS.V_Cantidad_De_Ventas_Por_Turno', 'V') IS NOT NULL DROP VIEW REDIS.V_Porcentaje_Anual_De_Ventas;
+IF OBJECT_ID('REDIS.V_Cantidad_De_Ventas_Por_Turno', 'V') IS NOT NULL DROP VIEW REDIS.V_Cantidad_De_Ventas_Por_Turno;
 IF OBJECT_ID('REDIS.V_Porcentaje_Descuento_Tickets', 'V') IS NOT NULL DROP VIEW REDIS.V_Porcentaje_Descuento_Tickets;
 
 IF OBJECT_ID('REDIS.V_Top3_Categorias_Promociones', 'V') IS NOT NULL DROP VIEW REDIS.V_Top3_Categorias_Promociones;
@@ -38,6 +38,7 @@ IF OBJECT_ID('REDIS.BI_Turno', 'U') IS NOT NULL DROP TABLE REDIS.BI_Turno;
 IF OBJECT_ID('REDIS.BI_Tipo_Caja', 'U') IS NOT NULL DROP TABLE REDIS.BI_Tipo_Caja;
 IF OBJECT_ID('REDIS.BI_Categoria_Producto', 'U') IS NOT NULL DROP TABLE REDIS.BI_Categoria_Producto;
 IF OBJECT_ID('REDIS.BI_Sucursal', 'U') IS NOT NULL DROP TABLE REDIS.BI_Sucursal;
+IF OBJECT_ID('REDIS.BI_Detalle_De_Pago', 'U') IS NOT NULL DROP TABLE REDIS.BI_Detalle_De_Pago;
 
 --------------------------------------
 ------------ DINMENSIONS -------------
@@ -98,6 +99,13 @@ CREATE TABLE REDIS.BI_Sucursal (
     sucursal_id INT IDENTITY PRIMARY KEY,
 	sucursal_nombre NVARCHAR(255),
 	sucursal_direccion NVARCHAR(255)
+)
+GO
+
+CREATE TABLE REDIS.BI_Detalle_De_Pago (
+    detalle_de_pago_id INT IDENTITY PRIMARY KEY,
+	cantidad_de_cuotas DECIMAL(18, 0),
+	importe_por_cuota DECIMAL(18, 2)
 )
 GO
 
