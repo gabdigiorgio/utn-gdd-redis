@@ -294,11 +294,13 @@ CREATE TABLE REDIS.BI_Hechos_Envio (
     envio_id INT IDENTITY PRIMARY KEY,
 	tiempo_id INT, -- FK
 	sucursal_id INT, --FK
+	rango_etario_cliente_id INT, --FK
 	envio_fecha_programada_minima DATETIME,
 	envio_fecha_programada_maxima DATETIME,
 	envio_fecha_entrega DATETIME
 	FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
-	FOREIGN KEY (sucursal_id) REFERENCES REDIS.BI_Sucursal(sucursal_id)
+	FOREIGN KEY (sucursal_id) REFERENCES REDIS.BI_Sucursal(sucursal_id),
+	FOREIGN KEY (rango_etario_cliente_id) REFERENCES REDIS.BI_Rango_Etario(rango_etario_id)
 )
 GO
 
