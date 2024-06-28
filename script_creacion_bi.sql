@@ -25,6 +25,7 @@ IF OBJECT_ID('REDIS.V_Cantidad_Envios_Rango_Etario_Clientes', 'V') IS NOT NULL D
 IF OBJECT_ID('REDIS.V_Top5_Localidades_Mayor_Costo_Envio', 'V') IS NOT NULL DROP VIEW REDIS.V_Top5_Localidades_Mayor_Costo_Envio;
 
 IF OBJECT_ID('REDIS.V_Top3_Sucursales_Pagos_Cuotas', 'V') IS NOT NULL DROP VIEW REDIS.V_Top3_Sucursales_Pagos_Cuotas;
+IF OBJECT_ID('REDIS.V_Promedio_Importe_Cuota_Rango_Etario', 'V') IS NOT NULL DROP VIEW REDIS.V_Promedio_Importe_Cuota_Rango_Etario;
 
 -- Hechos
 IF OBJECT_ID('REDIS.BI_Hechos_Venta', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Venta;
@@ -629,4 +630,17 @@ FROM
     Pagos_Cuotas_Sumados
 ORDER BY
     importe_total_cuotas DESC
+GO
+
+CREATE VIEW REDIS.V_Promedio_Importe_Cuota_Rango_Etario AS
+SELECT
+    re.rango_descripcion AS rango_etario_cliente,
+    AVG(p.pago_importe / p.cantidad_de_cuotas) AS promedio_importe_cuota
+FROM
+    REDIS.BI_Hechos_Pago p
+    JOIN REDIS.BI_Rango_Etario re ON p.rango_etario_cliente_id = re.rango_etario_id
+WHERE
+    p.cantidad_de_cuotas IS NOT NULL
+GROUP BY
+    re.rango_descripcion;
 GO
