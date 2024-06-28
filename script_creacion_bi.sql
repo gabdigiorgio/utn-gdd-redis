@@ -26,6 +26,7 @@ IF OBJECT_ID('REDIS.V_Top5_Localidades_Mayor_Costo_Envio', 'V') IS NOT NULL DROP
 
 IF OBJECT_ID('REDIS.V_Top3_Sucursales_Pagos_Cuotas', 'V') IS NOT NULL DROP VIEW REDIS.V_Top3_Sucursales_Pagos_Cuotas;
 IF OBJECT_ID('REDIS.V_Promedio_Importe_Cuota_Rango_Etario', 'V') IS NOT NULL DROP VIEW REDIS.V_Promedio_Importe_Cuota_Rango_Etario;
+IF OBJECT_ID('REDIS.V_Porcentaje_Descuento_Medio_Pago', 'V') IS NOT NULL DROP VIEW REDIS.V_Porcentaje_Descuento_Medio_Pago;
 
 -- Hechos
 IF OBJECT_ID('REDIS.BI_Hechos_Venta', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Venta;
@@ -113,14 +114,23 @@ GO
 INSERT INTO REDIS.BI_Tiempo(anio, cuatrimestre, mes)
 SELECT
     YEAR(t.ticket_fecha_hora) AS anio,
-    DATEPART(QUARTER, t.ticket_fecha_hora) AS cuatrimestre,
+    CASE 
+        WHEN DATEPART(MONTH, t.ticket_fecha_hora) BETWEEN 1 AND 4 THEN 1
+        WHEN DATEPART(MONTH, t.ticket_fecha_hora) BETWEEN 5 AND 8 THEN 2
+        WHEN DATEPART(MONTH, t.ticket_fecha_hora) BETWEEN 9 AND 12 THEN 3
+    END AS cuatrimestre,
     DATEPART(MONTH, t.ticket_fecha_hora) AS mes
 FROM REDIS.Ticket t
 GROUP BY 
     YEAR(t.ticket_fecha_hora), 
-    DATEPART(QUARTER, t.ticket_fecha_hora), 
+    CASE 
+        WHEN DATEPART(MONTH, t.ticket_fecha_hora) BETWEEN 1 AND 4 THEN 1
+        WHEN DATEPART(MONTH, t.ticket_fecha_hora) BETWEEN 5 AND 8 THEN 2
+        WHEN DATEPART(MONTH, t.ticket_fecha_hora) BETWEEN 9 AND 12 THEN 3
+    END, 
     DATEPART(MONTH, t.ticket_fecha_hora)
-ORDER BY mes
+ORDER BY 
+    anio, cuatrimestre, mes
 GO
 
 INSERT INTO REDIS.BI_Ubicacion(localidad_nombre, provincia_nombre)
@@ -308,7 +318,12 @@ FROM
     JOIN REDIS.Categoria_Producto c ON c.categoria_producto_nombre = sc.categoria_producto
     JOIN REDIS.BI_Tiempo bt ON bt.anio = YEAR(t.ticket_fecha_hora)
                             AND bt.mes = DATEPART(MONTH, t.ticket_fecha_hora)
-                            AND bt.cuatrimestre = DATEPART(QUARTER, t.ticket_fecha_hora)
+                            AND bt.cuatrimestre = 
+                                CASE 
+                                    WHEN DATEPART(MONTH, t.ticket_fecha_hora) BETWEEN 1 AND 4 THEN 1
+                                    WHEN DATEPART(MONTH, t.ticket_fecha_hora) BETWEEN 5 AND 8 THEN 2
+                                    WHEN DATEPART(MONTH, t.ticket_fecha_hora) BETWEEN 9 AND 12 THEN 3
+                                END
     JOIN REDIS.BI_Categoria_Producto bicp ON bicp.categoria_nombre = c.categoria_producto_nombre
 GO
 
@@ -349,7 +364,12 @@ FROM
 	REDIS.Envio e
 	JOIN REDIS.BI_Tiempo bt ON bt.anio = YEAR(e.envio_fecha_entrega)
                             AND bt.mes = DATEPART(MONTH, e.envio_fecha_entrega)
-                            AND bt.cuatrimestre = DATEPART(QUARTER, e.envio_fecha_entrega)
+                            AND bt.cuatrimestre = 
+                                CASE 
+                                    WHEN DATEPART(MONTH, e.envio_fecha_entrega) BETWEEN 1 AND 4 THEN 1
+                                    WHEN DATEPART(MONTH, e.envio_fecha_entrega) BETWEEN 5 AND 8 THEN 2
+                                    WHEN DATEPART(MONTH, e.envio_fecha_entrega) BETWEEN 9 AND 12 THEN 3
+                                END
 	JOIN REDIS.Ticket t ON t.ticket_id = e.envio_ticket_numero
 	JOIN REDIS.Sucursal s ON s.sucursal_id = t.ticket_sucursal_id
 	JOIN REDIS.BI_Sucursal bs ON bs.sucursal_nombre = s.sucursal_nombre
@@ -395,7 +415,12 @@ FROM
 	REDIS.Pago p
 	JOIN REDIS.BI_Tiempo bt ON bt.anio = YEAR(p.pago_fecha)
                             AND bt.mes = DATEPART(MONTH, p.pago_fecha)
-                            AND bt.cuatrimestre = DATEPART(QUARTER, p.pago_fecha)
+                            AND bt.cuatrimestre = 
+                                CASE 
+                                    WHEN DATEPART(MONTH, p.pago_fecha) BETWEEN 1 AND 4 THEN 1
+                                    WHEN DATEPART(MONTH, p.pago_fecha) BETWEEN 5 AND 8 THEN 2
+                                    WHEN DATEPART(MONTH, p.pago_fecha) BETWEEN 9 AND 12 THEN 3
+                                END
 	JOIN REDIS.Ticket t ON p.pago_ticket_numero = t.ticket_id
 	JOIN REDIS.Sucursal s ON s.sucursal_id = t.ticket_sucursal_id
 	JOIN REDIS.BI_Sucursal bs ON bs.sucursal_nombre = s.sucursal_nombre
@@ -645,4 +670,33 @@ WHERE
     p.cantidad_de_cuotas IS NOT NULL
 GROUP BY
     re.rango_descripcion;
+GO
+
+CREATE VIEW REDIS.V_Porcentaje_Descuento_Medio_Pago AS
+WITH TotalPagos AS (
+    SELECT
+        bt.cuatrimestre,
+        mp.medio_de_pago_descripcion,
+        SUM(p.pago_importe) AS total_pagos_sin_descuento,
+        SUM(p.pago_descuento_aplicado) AS total_descuentos_aplicados
+    FROM
+        REDIS.BI_Hechos_Pago p
+        JOIN REDIS.BI_Tiempo bt ON p.tiempo_id = bt.tiempo_id
+        JOIN REDIS.BI_Medio_De_Pago mp ON p.medio_de_pago_id = mp.medio_de_pago_id
+    GROUP BY
+        bt.cuatrimestre,
+        mp.medio_de_pago_descripcion
+)
+SELECT
+    cuatrimestre,
+    medio_de_pago_descripcion,
+    total_descuentos_aplicados AS total_descuentos_aplicados,
+    CASE
+        WHEN total_pagos_sin_descuento > 0 THEN
+            (total_descuentos_aplicados / total_pagos_sin_descuento) * 100
+        ELSE
+            0
+    END AS porcentaje_descuento_aplicado
+FROM
+    TotalPagos
 GO
