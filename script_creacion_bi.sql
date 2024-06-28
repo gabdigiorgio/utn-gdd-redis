@@ -367,6 +367,7 @@ CREATE TABLE REDIS.BI_Hechos_Pago(
 	medio_de_pago_id INT, --FK
 	rango_etario_cliente_id INT, --FK
 	pago_importe DECIMAL(18, 2),
+	pago_descuento_aplicado DECIMAL(18, 2),
 	cantidad_de_cuotas DECIMAL(18, 0)
 	FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
 	FOREIGN KEY (sucursal_id) REFERENCES REDIS.BI_Sucursal(sucursal_id),
@@ -376,7 +377,7 @@ CREATE TABLE REDIS.BI_Hechos_Pago(
 GO
 
 INSERT INTO REDIS.BI_Hechos_Pago (tiempo_id, sucursal_id, medio_de_pago_id, rango_etario_cliente_id,
-pago_importe, cantidad_de_cuotas)
+pago_importe, pago_descuento_aplicado, cantidad_de_cuotas)
 SELECT
 	bt.tiempo_id,
 	bs.sucursal_id,
@@ -388,6 +389,7 @@ SELECT
 		WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) > 50 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '> 50')
 	END AS rango_etario,
 	p.pago_importe,
+	p.pago_descuento_aplicado,
 	dp.cuotas
 FROM
 	REDIS.Pago p
