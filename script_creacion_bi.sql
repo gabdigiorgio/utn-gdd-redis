@@ -24,6 +24,8 @@ IF OBJECT_ID('REDIS.V_Porcentaje_Cumplimiento_Envios', 'V') IS NOT NULL DROP VIE
 IF OBJECT_ID('REDIS.V_Cantidad_Envios_Rango_Etario_Clientes', 'V') IS NOT NULL DROP VIEW REDIS.V_Cantidad_Envios_Rango_Etario_Clientes;
 IF OBJECT_ID('REDIS.V_Top5_Localidades_Mayor_Costo_Envio', 'V') IS NOT NULL DROP VIEW REDIS.V_Top5_Localidades_Mayor_Costo_Envio;
 
+IF OBJECT_ID('REDIS.V_Top3_Sucursales_Pagos_Cuotas', 'V') IS NOT NULL DROP VIEW REDIS.V_Top3_Sucursales_Pagos_Cuotas;
+
 -- Hechos
 IF OBJECT_ID('REDIS.BI_Hechos_Venta', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Venta;
 IF OBJECT_ID('REDIS.BI_Hechos_Promocion', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Promocion;
@@ -592,4 +594,37 @@ GROUP BY
     bu.provincia_nombre
 ORDER BY
     total_envio_costo DESC
+GO
+
+CREATE VIEW REDIS.V_Top3_Sucursales_Pagos_Cuotas AS
+WITH Pagos_Cuotas_Sumados AS (
+    SELECT
+        bt.anio,
+        bt.mes,
+        s.sucursal_nombre,
+        mp.medio_de_pago_descripcion,
+        SUM(p.pago_importe) AS importe_total_cuotas
+    FROM 
+        REDIS.BI_Hechos_Pago p
+        JOIN REDIS.BI_Tiempo bt ON p.tiempo_id = bt.tiempo_id
+        JOIN REDIS.BI_Sucursal s ON p.sucursal_id = s.sucursal_id
+        JOIN REDIS.BI_Medio_De_Pago mp ON p.medio_de_pago_id = mp.medio_de_pago_id
+    WHERE
+        p.cantidad_de_cuotas IS NOT NULL
+    GROUP BY
+        bt.anio,
+        bt.mes,
+        s.sucursal_nombre,
+        mp.medio_de_pago_descripcion
+)
+SELECT TOP 3
+    anio,
+    mes,
+    sucursal_nombre,
+    medio_de_pago_descripcion,
+    importe_total_cuotas
+FROM
+    Pagos_Cuotas_Sumados
+ORDER BY
+    importe_total_cuotas DESC
 GO
