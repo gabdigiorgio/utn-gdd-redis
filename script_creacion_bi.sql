@@ -222,10 +222,8 @@ CREATE TABLE REDIS.BI_Hechos_Venta
 	venta_id INT IDENTITY PRIMARY KEY,
 	tiempo_id INT, -- FK
 	ubicacion_id INT, -- FK
-	rango_etario_cliente_id INT, -- FK
 	rango_etario_empleado_id INT, -- FK
 	turno_id INT, -- FK
-	medio_de_pago_id INT, -- FK
 	tipo_caja_id INT,
 	importe_venta DECIMAL(18, 2),
 	cantidad_unidades DECIMAL(18,0),
@@ -234,10 +232,8 @@ CREATE TABLE REDIS.BI_Hechos_Venta
 	ticket_total_descuento_aplicado_total DECIMAL(18, 2),
 	FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
 	FOREIGN KEY (ubicacion_id) REFERENCES REDIS.BI_Ubicacion(ubicacion_id),
-	FOREIGN KEY (rango_etario_cliente_id) REFERENCES REDIS.BI_Rango_Etario(rango_etario_id),
 	FOREIGN KEY (rango_etario_empleado_id) REFERENCES REDIS.BI_Rango_Etario(rango_etario_id),
 	FOREIGN KEY (turno_id) REFERENCES REDIS.BI_Turno(turno_id),
-	FOREIGN KEY (medio_de_pago_id) REFERENCES REDIS.BI_Medio_De_Pago(medio_de_pago_id),
 	FOREIGN KEY (tipo_caja_id) REFERENCES REDIS.BI_Tipo_Caja(tipo_caja_id)
 )
 GO
