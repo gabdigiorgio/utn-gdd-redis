@@ -535,13 +535,15 @@ WITH RankedPromociones AS (
         bt.cuatrimestre,
         bicp.categoria_nombre
 )
-SELECT
+SELECT TOP 3
     anio,
     cuatrimestre,
     categoria_nombre,
     total_descuento
 FROM RankedPromociones
-WHERE rn <= 3
+WHERE rn = 1
+ORDER BY
+    anio, cuatrimestre;
 GO
 
 CREATE VIEW REDIS.V_Porcentaje_Cumplimiento_Envios AS
