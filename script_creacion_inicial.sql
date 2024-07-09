@@ -38,6 +38,34 @@ IF OBJECT_ID('REDIS.Sucursal', 'U') IS NOT NULL DROP TABLE REDIS.Sucursal;
 IF OBJECT_ID('REDIS.Localidad', 'U') IS NOT NULL DROP TABLE REDIS.Localidad;
 IF OBJECT_ID('REDIS.Provincia', 'U') IS NOT NULL DROP TABLE REDIS.Provincia;
 
+--------------------------------------
+---------- PROCEDURE DROPS -----------
+--------------------------------------
+
+IF OBJECT_ID('REDIS.migrar_Provincia', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Provincia;
+IF OBJECT_ID('REDIS.migrar_Localidad', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Localidad;
+IF OBJECT_ID('REDIS.migrar_Super', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Super;
+IF OBJECT_ID('REDIS.migrar_Sucursal', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Sucursal;
+IF OBJECT_ID('REDIS.migrar_Caja', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Caja;
+IF OBJECT_ID('REDIS.migrar_Empleado', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Empleado;
+IF OBJECT_ID('REDIS.migrar_Categoria_Producto', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Categoria_Producto;
+IF OBJECT_ID('REDIS.migrar_Subcategoria_Producto', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Subcategoria_Producto;
+IF OBJECT_ID('REDIS.migrar_Ticket', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Ticket;
+IF OBJECT_ID('REDIS.migrar_Cliente', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Cliente;
+IF OBJECT_ID('REDIS.migrar_Medio_Pago', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Medio_Pago;
+IF OBJECT_ID('REDIS.migrar_Detalle_De_Pago', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Detalle_De_Pago;
+IF OBJECT_ID('REDIS.migrar_Descuento_Por_Pago', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Descuento_Por_Pago;
+IF OBJECT_ID('REDIS.migrar_Descuento', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Descuento;
+IF OBJECT_ID('REDIS.migrar_Envio', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Envio;
+IF OBJECT_ID('REDIS.migrar_Pago', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Pago;
+IF OBJECT_ID('REDIS.migrar_Regla', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Regla;
+IF OBJECT_ID('REDIS.migrar_Promocion', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Promocion;
+IF OBJECT_ID('REDIS.migrar_Marca_Producto', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Marca_Producto;
+IF OBJECT_ID('REDIS.migrar_Producto', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Producto;
+IF OBJECT_ID('REDIS.migrar_Promocion_Por_Producto', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Promocion_Por_Producto;
+IF OBJECT_ID('REDIS.migrar_Ticket_Detalle', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Ticket_Detalle;
+IF OBJECT_ID('REDIS.migrar_Promocion_Por_Ticket', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Promocion_Por_Ticket;
+
 -------------------------------------------
 -------------- CREATE TABLES --------------
 -------------------------------------------
@@ -230,11 +258,11 @@ GO
 
 CREATE TABLE REDIS.Ticket_Detalle (
 	ticket_detalle_id DECIMAL(18,0) PRIMARY KEY IDENTITY,
-	producto_id DECIMAL(18,0), --FK,
-	ticket_numero DECIMAL(18, 0), --FK,
-	cantidad DECIMAL(18,0),
-	precio_unitario DECIMAL(18,2),
-	total_producto DECIMAL(18,2)
+	producto_id DECIMAL(18,0) NOT NULL, --FK,
+	ticket_numero DECIMAL(18, 0) NOT NULL, --FK,
+	cantidad DECIMAL(18,0) NOT NULL,
+	precio_unitario DECIMAL(18,2) NOT NULL,
+	total_producto DECIMAL(18,2) NOT NULL
 )
 GO
 
@@ -728,49 +756,62 @@ GO
 CREATE PROCEDURE REDIS.migrar_Ticket_Detalle AS
 BEGIN
 	INSERT INTO REDIS.Ticket_Detalle 
-	SELECT DISTINCT
-		p.producto_id,
+	SELECT 
+		p.producto_id, 
 		t.ticket_id,
-		TICKET_DET_CANTIDAD,
-		TICKET_DET_PRECIO,
-		TICKET_DET_TOTAL
+		m.TICKET_DET_CANTIDAD,
+		m.TICKET_DET_PRECIO,
+		m.TICKET_DET_TOTAL
 	FROM 
 		gd_esquema.Maestra m,
 		REDIS.Producto p,
+		REDIS.Marca_Producto marc,
+		REDIS.Subcategoria_Producto sp,
+		REDIS.Categoria_Producto cp,
 		REDIS.Ticket t
 	WHERE 
-		m.PRODUCTO_NOMBRE = p.producto_codigo
-		AND m.PRODUCTO_MARCA = p.producto_marca
+		m.PRODUCTO_NOMBRE IS NOT NULL
+		AND m.PRODUCTO_NOMBRE = p.producto_codigo
+		AND sp.subcategoria_producto_id = p.producto_subcategoria
+		AND m.PRODUCTO_SUB_CATEGORIA = sp.subcategoria_producto_nombre
+		AND marc.marca_producto_nombre = p.producto_marca
+		AND m.PRODUCTO_MARCA = marc.marca_producto_nombre
+		AND cp.categoria_producto_nombre = sp.categoria_producto
+		AND m.PRODUCTO_CATEGORIA = cp.categoria_producto_nombre
 		AND t.ticket_numero = m.TICKET_NUMERO
+	GROUP BY m.PRODUCTO_NOMBRE, m.TICKET_NUMERO, p.producto_id, t.ticket_id, m.TICKET_DET_CANTIDAD,
+	m.TICKET_DET_PRECIO, m.TICKET_DET_TOTAL
 END
 GO
 
 CREATE PROCEDURE REDIS.migrar_Promocion_Por_Ticket AS
 BEGIN
 	INSERT INTO REDIS.Promocion_Por_Ticket 
-	SELECT 
+	SELECT  DISTINCT
+		m.PROMO_CODIGO,
 		td.ticket_detalle_id,
-		p.promocion_codigo,
 		SUM(m.PROMO_APLICADA_DESCUENTO)
-	FROM 
-		gd_esquema.Maestra m,
-		REDIS.Ticket_Detalle td,
-		REDIS.Ticket t,
-		REDIS.Promocion p,
-		REDIS.Producto prod
+	--FROM
+	--	gd_esquema.Maestra m,
+	--	REDIS.Ticket_Detalle td,
+	--	REDIS.Ticket t,
+	--	REDIS.Producto p
+	FROM
+		REDIS.Ticket_Detalle td
+		JOIN REDIS.Ticket t ON td.ticket_numero = t.ticket_id
+		JOIN REDIS.Producto p ON p.producto_id = td.producto_id
+		JOIN gd_esquema.Maestra m ON m.TICKET_NUMERO = t.ticket_numero
+		AND m.PRODUCTO_NOMBRE = p.producto_codigo
 	WHERE 
-		PROMO_APLICADA_DESCUENTO IS NOT NULL
-		AND t.ticket_numero = m.TICKET_NUMERO
-		AND td.ticket_numero = t.ticket_id
-		AND m.PRODUCTO_NOMBRE = prod.producto_codigo
-		AND td.producto_id = prod.producto_id
-		AND p.promocion_codigo = m.PROMO_CODIGO
+		m.PROMO_CODIGO IS NOT NULL
+		AND m.TICKET_NUMERO IS NOT NULL
+	--	AND m.PROMO_APLICADA_DESCUENTO > 0
+	--	AND m.TICKET_NUMERO = t.ticket_numero
+	--	AND t.ticket_id = td.ticket_numero
+	--	AND m.PRODUCTO_NOMBRE = p.producto_codigo
+	--	AND td.producto_id = p.producto_id
 	GROUP BY 
-		t.ticket_id,
-		td.ticket_detalle_id, 
-		p.promocion_codigo,
-		t.ticket_numero
-	ORDER BY td.ticket_detalle_id DESC
+		 m.PROMO_CODIGO, td.ticket_detalle_id
 END
 GO
 
@@ -803,34 +844,6 @@ BEGIN TRANSACTION
 	EXECUTE REDIS.migrar_Ticket_Detalle
 	EXECUTE REDIS.migrar_Promocion_Por_Ticket
 COMMIT TRANSACTION
-
---------------------------------------
----------- PROCEDURE DROPS -----------
---------------------------------------
-
-DROP PROCEDURE REDIS.migrar_Provincia;
-DROP PROCEDURE REDIS.migrar_Localidad;
-DROP PROCEDURE REDIS.migrar_Super;
-DROP PROCEDURE REDIS.migrar_Sucursal;
-DROP PROCEDURE REDIS.migrar_Caja;
-DROP PROCEDURE REDIS.migrar_Empleado;
-DROP PROCEDURE REDIS.migrar_Categoria_Producto;
-DROP PROCEDURE REDIS.migrar_Subcategoria_Producto;
-DROP PROCEDURE REDIS.migrar_Ticket;
-DROP PROCEDURE REDIS.migrar_Cliente;
-DROP PROCEDURE REDIS.migrar_Medio_Pago;
-DROP PROCEDURE REDIS.migrar_Detalle_De_Pago;
-DROP PROCEDURE REDIS.migrar_Descuento_Por_Pago;
-DROP PROCEDURE REDIS.migrar_Descuento;
-DROP PROCEDURE REDIS.migrar_Envio;
-DROP PROCEDURE REDIS.migrar_Pago;
-DROP PROCEDURE REDIS.migrar_Regla;
-DROP PROCEDURE REDIS.migrar_Promocion;
-DROP PROCEDURE REDIS.migrar_Marca_Producto;
-DROP PROCEDURE REDIS.migrar_Producto;
-DROP PROCEDURE REDIS.migrar_Promocion_Por_Producto;
-DROP PROCEDURE REDIS.migrar_Ticket_Detalle;
-DROP PROCEDURE REDIS.migrar_Promocion_Por_Ticket;
 
 --------------------------------------
 ------------ FOREING KEYS ------------
