@@ -37,6 +37,7 @@ IF OBJECT_ID('REDIS.Caja', 'U') IS NOT NULL DROP TABLE REDIS.Caja;
 IF OBJECT_ID('REDIS.Sucursal', 'U') IS NOT NULL DROP TABLE REDIS.Sucursal;
 IF OBJECT_ID('REDIS.Localidad', 'U') IS NOT NULL DROP TABLE REDIS.Localidad;
 IF OBJECT_ID('REDIS.Provincia', 'U') IS NOT NULL DROP TABLE REDIS.Provincia;
+IF OBJECT_ID('REDIS.Descuento_Por_Medio_De_Pago', 'U') IS NOT NULL DROP TABLE REDIS.Descuento_Por_Medio_De_Pago;
 
 --------------------------------------
 ---------- PROCEDURE DROPS -----------
@@ -65,6 +66,7 @@ IF OBJECT_ID('REDIS.migrar_Producto', 'P') IS NOT NULL DROP PROCEDURE REDIS.migr
 IF OBJECT_ID('REDIS.migrar_Promocion_Por_Producto', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Promocion_Por_Producto;
 IF OBJECT_ID('REDIS.migrar_Ticket_Detalle', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Ticket_Detalle;
 IF OBJECT_ID('REDIS.migrar_Promocion_Por_Ticket', 'P') IS NOT NULL DROP PROCEDURE REDIS.migrar_Promocion_Por_Ticket;
+IF OBJECT_ID('REDIS.migrar_Descuento_Por_Medio_De_Pago') IS NOT NULL DROP PROCEDURE REDIS.migrar_Descuento_Por_Medio_De_Pago;
 
 -------------------------------------------
 -------------- CREATE TABLES --------------
@@ -279,6 +281,13 @@ CREATE TABLE REDIS.Caja (
 	caja_tipo NVARCHAR(255) NOT NULL,
 	caja_sucursal_id DECIMAL(18,0) NOT NULL --FK
 	PRIMARY KEY (caja_numero, caja_sucursal_id)
+)
+GO
+
+CREATE TABLE REDIS.Descuento_Por_Medio_De_Pago (
+	descuento_codigo DECIMAL(18,0),  -- FK
+	medio_de_pago NVARCHAR(255) -- FK
+	PRIMARY KEY (descuento_codigo, medio_de_pago)
 )
 GO
 
@@ -821,6 +830,14 @@ BEGIN
 END
 GO
 
+CREATE PROCEDURE REDIS.migrar_Descuento_Por_Medio_De_Pago AS
+BEGIN
+	INSERT INTO REDIS.Descuento_Por_Medio_De_Pago 
+	SELECT DESCUENTO_CODIGO, PAGO_MEDIO_PAGO FROM gd_esquema.Maestra
+	WHERE DESCUENTO_CODIGO IS NOT NULL AND PAGO_MEDIO_PAGO IS NOT NULL
+	GROUP BY DESCUENTO_CODIGO, PAGO_MEDIO_PAGO
+END
+GO
 
 --------------------------------------
 ---------- DATA MIGRATION ------------
@@ -850,6 +867,7 @@ BEGIN TRANSACTION
 	EXECUTE REDIS.migrar_Promocion_Por_Producto
 	EXECUTE REDIS.migrar_Ticket_Detalle
 	EXECUTE REDIS.migrar_Promocion_Por_Ticket
+	EXECUTE REDIS.migrar_Descuento_Por_Medio_De_Pago
 COMMIT TRANSACTION
 
 --------------------------------------
@@ -918,3 +936,9 @@ ADD FOREIGN KEY (producto_id) REFERENCES REDIS.Producto (producto_id)
 
 ALTER TABLE REDIS.Caja
 ADD FOREIGN KEY (caja_sucursal_id) REFERENCES REDIS.Sucursal (sucursal_id)
+
+ALTER TABLE REDIS.Descuento_Por_Medio_De_Pago
+ADD FOREIGN KEY (descuento_codigo) REFERENCES REDIS.Descuento (descuento_codigo)
+
+ALTER TABLE REDIS.Descuento_Por_Medio_De_Pago
+ADD FOREIGN KEY (medio_de_pago) REFERENCES REDIS.Medio_Pago (medio_pago)
