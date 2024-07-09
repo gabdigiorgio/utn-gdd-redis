@@ -497,32 +497,18 @@ SELECT
     bt.anio,
     bt.mes,
     bu.localidad_nombre,
-    CASE 
-        WHEN DATEPART(HOUR, t.ticket_fecha_hora) BETWEEN 8 AND 12 THEN '08:00 - 12:00'
-        WHEN DATEPART(HOUR, t.ticket_fecha_hora) BETWEEN 12 AND 16 THEN '12:00 - 16:00'
-        WHEN DATEPART(HOUR, t.ticket_fecha_hora) BETWEEN 16 AND 20 THEN '16:00 - 20:00'
-		ELSE 'Otros'
-    END AS turno,
+    bturno.turno_descripcion AS turno,
     COUNT(*) AS cantidad_ventas
 FROM 
-    REDIS.Ticket t
-    JOIN REDIS.Sucursal s ON t.ticket_sucursal_id = s.sucursal_id
-    JOIN REDIS.Localidad l ON s.sucursal_localidad = l.localidad_id
-    JOIN REDIS.Provincia p ON l.localidad_provincia = p.provincia_id
-    JOIN REDIS.BI_Tiempo bt ON YEAR(t.ticket_fecha_hora) = bt.anio
-        AND MONTH(t.ticket_fecha_hora) = bt.mes
-    JOIN REDIS.BI_Ubicacion bu ON l.localidad_nombre = bu.localidad_nombre
-        AND p.provincia_nombre = bu.provincia_nombre
+    REDIS.BI_Hechos_Venta hv
+	JOIN REDIS.BI_Tiempo bt ON bt.tiempo_id = hv.tiempo_id
+	JOIN REDIS.BI_Ubicacion bu ON bu.ubicacion_id = hv.ubicacion_id
+	JOIN REDIS.BI_Turno bturno ON bturno.turno_id = hv.turno_id
 GROUP BY
     bt.anio,
     bt.mes,
     bu.localidad_nombre,
-    CASE 
-        WHEN DATEPART(HOUR, t.ticket_fecha_hora) BETWEEN 8 AND 12 THEN '08:00 - 12:00'
-        WHEN DATEPART(HOUR, t.ticket_fecha_hora) BETWEEN 12 AND 16 THEN '12:00 - 16:00'
-        WHEN DATEPART(HOUR, t.ticket_fecha_hora) BETWEEN 16 AND 20 THEN '16:00 - 20:00'
-		ELSE 'Otros'
-    END
+    bturno.turno_descripcion
 GO
 
 CREATE VIEW REDIS.V_Porcentaje_Descuento_Tickets AS
