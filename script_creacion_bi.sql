@@ -219,12 +219,11 @@ GO
 
 CREATE TABLE REDIS.BI_Hechos_Venta
 (
-	venta_id INT IDENTITY PRIMARY KEY,
 	tiempo_id INT, -- FK
 	ubicacion_id INT, -- FK
 	rango_etario_empleado_id INT, -- FK
 	turno_id INT, -- FK
-	tipo_caja_id INT,
+	tipo_caja_id INT, --FK
 	importe_venta DECIMAL(18, 2),
 	cantidad_unidades DECIMAL(18,0),
 	ticket_total_descuento_aplicado_prod DECIMAL(18, 2),
@@ -234,7 +233,8 @@ CREATE TABLE REDIS.BI_Hechos_Venta
 	FOREIGN KEY (ubicacion_id) REFERENCES REDIS.BI_Ubicacion(ubicacion_id),
 	FOREIGN KEY (rango_etario_empleado_id) REFERENCES REDIS.BI_Rango_Etario(rango_etario_id),
 	FOREIGN KEY (turno_id) REFERENCES REDIS.BI_Turno(turno_id),
-	FOREIGN KEY (tipo_caja_id) REFERENCES REDIS.BI_Tipo_Caja(tipo_caja_id)
+	FOREIGN KEY (tipo_caja_id) REFERENCES REDIS.BI_Tipo_Caja(tipo_caja_id),
+	PRIMARY KEY (tiempo_id, ubicacion_id, rango_etario_empleado_id, turno_id, tipo_caja_id)
 )
 GO
 
@@ -246,26 +246,14 @@ INSERT INTO REDIS.BI_Hechos_Venta (
 SELECT
     bt.tiempo_id,
     bu.ubicacion_id,
-	(SELECT turno_id FROM REDIS.BI_Turno 
-     WHERE turno_descripcion = 
-	 CASE 
-		WHEN DATEPART(HOUR, t.ticket_fecha_hora) BETWEEN 8 AND 12 THEN '08:00 - 12:00'
-		WHEN DATEPART(HOUR, t.ticket_fecha_hora) BETWEEN 12 AND 16 THEN '12:00 - 16:00'
-		WHEN DATEPART(HOUR, t.ticket_fecha_hora) BETWEEN 16 AND 20 THEN '16:00 - 20:00'
-		ELSE 'Otros'
-    END) AS ticket_turno,
-    t.ticket_total_venta AS importe_venta,
+	bturno.turno_id AS ticket_turno,
+    SUM(t.ticket_total_venta) AS importe_venta,
 	SUM(td.cantidad) AS cantidad_unidades,
-	CASE 
-        WHEN DATEDIFF(YEAR, e.empleado_fecha_nacimiento, GETDATE()) < 25 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '< 25')
-        WHEN DATEDIFF(YEAR, e.empleado_fecha_nacimiento, GETDATE()) BETWEEN 25 AND 35 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '25 - 35')
-        WHEN DATEDIFF(YEAR, e.empleado_fecha_nacimiento, GETDATE()) BETWEEN 35 AND 50 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '35 - 50')
-        ELSE (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '> 50')
-    END AS rango_etario_empleado_id,
+	brango.rango_etario_id AS rango_etario_empleado_id,
 	tc.tipo_caja_id,
-	t.ticket_total_descuento_aplicado,
-	t.ticket_total_descuento_aplicado_mp,
-	(t.ticket_total_descuento_aplicado + t.ticket_total_descuento_aplicado_mp)
+	SUM(t.ticket_total_descuento_aplicado),
+	SUM(t.ticket_total_descuento_aplicado_mp),
+	SUM(t.ticket_total_descuento_aplicado + t.ticket_total_descuento_aplicado_mp)
 FROM 
 	REDIS.Ticket t
 	JOIN REDIS.Sucursal s ON t.ticket_sucursal_id = s.sucursal_id
@@ -273,21 +261,32 @@ FROM
 	JOIN REDIS.Provincia p ON l.localidad_provincia = p.provincia_id
 	JOIN REDIS.BI_Tiempo bt ON YEAR(t.ticket_fecha_hora) = bt.anio
 		AND MONTH(t.ticket_fecha_hora) = bt.mes
+	JOIN REDIS.BI_Turno bturno ON bturno.turno_descripcion =
+		CASE
+			WHEN DATEPART(HOUR, t.ticket_fecha_hora) BETWEEN 8 AND 12 THEN '08:00 - 12:00'
+			WHEN DATEPART(HOUR, t.ticket_fecha_hora) BETWEEN 12 AND 16 THEN '12:00 - 16:00'
+			WHEN DATEPART(HOUR, t.ticket_fecha_hora) BETWEEN 16 AND 20 THEN '16:00 - 20:00'
+			ELSE 'Otros'
+		END
 	JOIN REDIS.BI_Ubicacion bu ON l.localidad_nombre = bu.localidad_nombre
 		AND p.provincia_nombre = bu.provincia_nombre
 	JOIN REDIS.Ticket_Detalle td ON td.ticket_numero = t.ticket_id
 	JOIN REDIS.Empleado e ON t.ticket_empleado_legajo = e.empleado_legajo
 	JOIN REDIS.Caja c ON c.caja_numero = t.ticket_caja_numero AND c.caja_sucursal_id = t.ticket_sucursal_id
 	JOIN REDIS.BI_Tipo_Caja tc ON tc.tipo_caja_descripcion = c.caja_tipo
+	JOIN REDIS.BI_Rango_Etario brango ON brango.rango_etario_id =
+		CASE 
+		    WHEN DATEDIFF(YEAR, e.empleado_fecha_nacimiento, GETDATE()) < 25 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '< 25')
+		    WHEN DATEDIFF(YEAR, e.empleado_fecha_nacimiento, GETDATE()) BETWEEN 25 AND 35 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '25 - 35')
+		    WHEN DATEDIFF(YEAR, e.empleado_fecha_nacimiento, GETDATE()) BETWEEN 35 AND 50 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '35 - 50')
+		    ELSE (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '> 50')
+		END
 GROUP BY
     bt.tiempo_id,
     bu.ubicacion_id,
-    t.ticket_total_venta,
-	t.ticket_fecha_hora,
-	e.empleado_fecha_nacimiento,
-	tc.tipo_caja_id,
-	t.ticket_total_descuento_aplicado,
-	t.ticket_total_descuento_aplicado_mp
+	bturno.turno_id,
+	brango.rango_etario_id,
+	tc.tipo_caja_id
 GO
 
 CREATE TABLE REDIS.BI_Hechos_Promocion (
@@ -432,7 +431,7 @@ GO
 
 CREATE VIEW REDIS.V_Ticket_Promedio_Mensual AS
 SELECT
-    BU.localidad_nombre AS Localidad,
+    bu.localidad_nombre AS Localidad,
     bt.anio AS Anio,
     bt.mes AS Mes,
     AVG(hv.importe_venta) AS Ticket_Promedio
@@ -441,7 +440,7 @@ FROM
 JOIN
     REDIS.BI_Tiempo bt ON hv.tiempo_id = bt.tiempo_id
 JOIN
-    REDIS.BI_Ubicacion BU ON hv.ubicacion_id = BU.ubicacion_id
+    REDIS.BI_Ubicacion bu ON hv.ubicacion_id = bu.ubicacion_id
 GROUP BY
     bu.localidad_nombre,
     bt.anio,
