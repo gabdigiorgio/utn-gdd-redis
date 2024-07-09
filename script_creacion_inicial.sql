@@ -588,10 +588,12 @@ BEGIN
 		gd_esquema.Maestra m,
 		REDIS.Pago p,
 		REDIS.Medio_Pago mp,
-		REDIS.Descuento d
+		REDIS.Descuento d,
+		REDIS.Ticket t
 	WHERE 
 		m.DESCUENTO_CODIGO IS NOT NULL
-		AND p.pago_ticket_numero = m.TICKET_NUMERO
+		AND p.pago_ticket_numero = t.ticket_id
+		AND t.ticket_numero = m.TICKET_NUMERO
 		AND p.pago_fecha BETWEEN m.DESCUENTO_FECHA_INICIO AND m.DESCUENTO_FECHA_FIN
 		AND mp.medio_pago = m.PAGO_MEDIO_PAGO
 		AND p.pago_medio_pago = mp.medio_pago
