@@ -290,12 +290,12 @@ GROUP BY
 GO
 
 CREATE TABLE REDIS.BI_Hechos_Promocion (
-    promocion_id INT IDENTITY PRIMARY KEY,
     tiempo_id INT, -- FK
     categoria_id INT, -- FK
     promo_aplicada_descuento DECIMAL(18, 2),
     FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
-    FOREIGN KEY (categoria_id) REFERENCES REDIS.BI_Categoria_Producto(categoria_producto_id)
+    FOREIGN KEY (categoria_id) REFERENCES REDIS.BI_Categoria_Producto(categoria_producto_id),
+	PRIMARY KEY (tiempo_id, categoria_id)
 )
 GO
 
@@ -303,7 +303,7 @@ INSERT INTO REDIS.BI_Hechos_Promocion (tiempo_id, categoria_id, promo_aplicada_d
 SELECT
     bt.tiempo_id,
     bicp.categoria_producto_id,
-    ppt.promo_aplicada_descuento
+    SUM(ppt.promo_aplicada_descuento)
 FROM
     REDIS.Promocion_Por_Ticket ppt
     JOIN REDIS.Ticket_Detalle td ON ppt.ticket_detalle_id = td.ticket_detalle_id
@@ -320,6 +320,9 @@ FROM
                                     WHEN DATEPART(MONTH, t.ticket_fecha_hora) BETWEEN 9 AND 12 THEN 3
                                 END
     JOIN REDIS.BI_Categoria_Producto bicp ON bicp.categoria_nombre = c.categoria_producto_nombre
+GROUP BY
+	bt.tiempo_id,
+	bicp.categoria_producto_id
 GO
 
 CREATE TABLE REDIS.BI_Hechos_Envio (
@@ -528,31 +531,20 @@ GROUP BY
 GO
 
 CREATE VIEW REDIS.V_Top3_Categorias_Promociones AS
-WITH RankedPromociones AS (
-    SELECT
-        bt.anio,
-        bt.cuatrimestre,
-        bicp.categoria_nombre,
-        SUM(bp.promo_aplicada_descuento) AS total_descuento,
-        ROW_NUMBER() OVER (PARTITION BY bt.anio, bt.cuatrimestre ORDER BY SUM(bp.promo_aplicada_descuento) DESC) AS rn
-    FROM
-        REDIS.BI_Hechos_Promocion bp
-        JOIN REDIS.BI_Tiempo bt ON bp.tiempo_id = bt.tiempo_id
-        JOIN REDIS.BI_Categoria_Producto bicp ON bp.categoria_id = bicp.categoria_producto_id
-    GROUP BY
-        bt.anio,
-        bt.cuatrimestre,
-        bicp.categoria_nombre
-)
 SELECT TOP 3
-    anio,
-    cuatrimestre,
-    categoria_nombre,
-    total_descuento
-FROM RankedPromociones
-WHERE rn = 1
+	bt.anio,
+	bt.cuatrimestre,
+	bcp.categoria_nombre
+FROM
+	REDIS.BI_Hechos_Promocion hp
+	JOIN REDIS.BI_Tiempo bt ON bt.tiempo_id = hp.tiempo_id
+	JOIN REDIS.BI_Categoria_Producto bcp ON bcp.categoria_producto_id = hp.categoria_id
+GROUP BY
+	bt.cuatrimestre,
+	bt.anio,
+	bcp.categoria_nombre
 ORDER BY
-    anio, cuatrimestre;
+	SUM(hp.promo_aplicada_descuento) DESC
 GO
 
 CREATE VIEW REDIS.V_Porcentaje_Cumplimiento_Envios AS
