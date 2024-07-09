@@ -786,34 +786,39 @@ GO
 
 CREATE PROCEDURE REDIS.migrar_Promocion_Por_Ticket AS
 BEGIN
-	INSERT INTO REDIS.Promocion_Por_Ticket 
-	SELECT  DISTINCT
-		m.PROMO_CODIGO,
-		td.ticket_detalle_id,
-		SUM(m.PROMO_APLICADA_DESCUENTO)
-	--FROM
-	--	gd_esquema.Maestra m,
-	--	REDIS.Ticket_Detalle td,
-	--	REDIS.Ticket t,
-	--	REDIS.Producto p
-	FROM
-		REDIS.Ticket_Detalle td
-		JOIN REDIS.Ticket t ON td.ticket_numero = t.ticket_id
-		JOIN REDIS.Producto p ON p.producto_id = td.producto_id
-		JOIN gd_esquema.Maestra m ON m.TICKET_NUMERO = t.ticket_numero
-		AND m.PRODUCTO_NOMBRE = p.producto_codigo
-	WHERE 
-		m.PROMO_CODIGO IS NOT NULL
-		AND m.TICKET_NUMERO IS NOT NULL
-	--	AND m.PROMO_APLICADA_DESCUENTO > 0
-	--	AND m.TICKET_NUMERO = t.ticket_numero
-	--	AND t.ticket_id = td.ticket_numero
-	--	AND m.PRODUCTO_NOMBRE = p.producto_codigo
-	--	AND td.producto_id = p.producto_id
-	GROUP BY 
-		 m.PROMO_CODIGO, td.ticket_detalle_id
+    INSERT INTO REDIS.Promocion_Por_Ticket 
+    (
+        ticket_detalle_id,
+        promocion_codigo,
+        promo_aplicada_descuento
+    )
+    SELECT
+        ticket_detalle_id,
+        promocion_codigo,
+        promo_aplicada_descuento
+    FROM
+        (
+            SELECT
+                td.ticket_detalle_id,
+                p.promocion_codigo,
+                m.PROMO_APLICADA_DESCUENTO AS promo_aplicada_descuento,
+                ROW_NUMBER() OVER (PARTITION BY td.ticket_detalle_id ORDER BY p.promocion_codigo) AS rn
+            FROM
+                REDIS.Ticket_Detalle td
+                JOIN REDIS.Ticket t ON t.ticket_id = td.ticket_numero
+                JOIN gd_esquema.Maestra m ON m.TICKET_NUMERO = t.ticket_numero
+                JOIN REDIS.Promocion_Por_Producto ppp ON ppp.producto_id = td.producto_id
+                JOIN REDIS.Promocion p ON p.promocion_codigo = ppp.promocion_codigo
+            WHERE
+                m.PROMO_APLICADA_DESCUENTO IS NOT NULL
+                AND m.PROMO_CODIGO IS NOT NULL
+                AND m.PROMO_CODIGO = p.promocion_codigo
+        ) sub
+    WHERE
+        rn = 1
 END
 GO
+
 
 --------------------------------------
 ---------- DATA MIGRATION ------------
