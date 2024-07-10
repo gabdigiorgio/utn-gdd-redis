@@ -32,7 +32,7 @@ IF OBJECT_ID('REDIS.V_Porcentaje_Descuento_Medio_Pago', 'V') IS NOT NULL DROP VI
 IF OBJECT_ID('REDIS.BI_Hechos_Venta', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Venta;
 IF OBJECT_ID('REDIS.BI_Hechos_Promocion', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Promocion;
 IF OBJECT_ID('REDIS.BI_Hechos_Envio', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Envio;
-IF OBJECT_ID('REDIS.BI_Hechos_Pago', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Pago;
+IF OBJECT_ID('REDIS.BI_Hechos_Pago_Cuotas', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Pago_Cuotas;
 
 -- Dimensiones
 IF OBJECT_ID('REDIS.BI_Tiempo', 'U') IS NOT NULL DROP TABLE REDIS.BI_Tiempo;
@@ -163,7 +163,7 @@ SELECT DISTINCT
         WHEN DATEDIFF(YEAR, empleado_fecha_nacimiento, GETDATE()) < 25 THEN '< 25'
         WHEN DATEDIFF(YEAR, empleado_fecha_nacimiento, GETDATE()) BETWEEN 25 AND 35 THEN '25 - 35'
         WHEN DATEDIFF(YEAR, empleado_fecha_nacimiento, GETDATE()) BETWEEN 35 AND 50 THEN '35 - 50'
-        ELSE '> 50'
+		WHEN DATEDIFF(YEAR, empleado_fecha_nacimiento, GETDATE()) > 50 THEN '> 50'
     END AS rango_etario
 FROM REDIS.Empleado
 UNION
@@ -172,7 +172,7 @@ SELECT DISTINCT
         WHEN DATEDIFF(YEAR, cliente_fecha_nacimiento, GETDATE()) < 25 THEN '< 25'
         WHEN DATEDIFF(YEAR, cliente_fecha_nacimiento, GETDATE()) BETWEEN 25 AND 35 THEN '25 - 35'
         WHEN DATEDIFF(YEAR, cliente_fecha_nacimiento, GETDATE()) BETWEEN 35 AND 50 THEN '35 - 50'
-        ELSE '> 50'
+        WHEN DATEDIFF(YEAR, cliente_fecha_nacimiento, GETDATE()) > 50 THEN '> 50'
     END AS rango_etario
 FROM REDIS.Cliente
 GO
@@ -385,37 +385,30 @@ GROUP BY
 	bu.ubicacion_id
 GO
 
-CREATE TABLE REDIS.BI_Hechos_Pago(
-	pago_id INT IDENTITY PRIMARY KEY,
+CREATE TABLE REDIS.BI_Hechos_Pago_Cuotas(
 	tiempo_id INT, -- FK
 	sucursal_id INT, -- FK
 	medio_de_pago_id INT, --FK
 	rango_etario_cliente_id INT, --FK
 	pago_importe DECIMAL(18, 2),
-	pago_descuento_aplicado DECIMAL(18, 2),
 	cantidad_de_cuotas DECIMAL(18, 0)
 	FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
 	FOREIGN KEY (sucursal_id) REFERENCES REDIS.BI_Sucursal(sucursal_id),
 	FOREIGN KEY (medio_de_pago_id) REFERENCES REDIS.BI_Medio_De_Pago(medio_de_pago_id),
-	FOREIGN KEY (rango_etario_cliente_id) REFERENCES REDIS.BI_Rango_Etario(rango_etario_id)
+	FOREIGN KEY (rango_etario_cliente_id) REFERENCES REDIS.BI_Rango_Etario(rango_etario_id),
+	PRIMARY KEY (tiempo_id, sucursal_id, medio_de_pago_id, rango_etario_cliente_id)
 )
 GO
 
-INSERT INTO REDIS.BI_Hechos_Pago (tiempo_id, sucursal_id, medio_de_pago_id, rango_etario_cliente_id,
-pago_importe, pago_descuento_aplicado, cantidad_de_cuotas)
+INSERT INTO REDIS.BI_Hechos_Pago_Cuotas (tiempo_id, sucursal_id, medio_de_pago_id, rango_etario_cliente_id,
+pago_importe, cantidad_de_cuotas)
 SELECT
 	bt.tiempo_id,
 	bs.sucursal_id,
 	bmp.medio_de_pago_id,
-	CASE 
-        WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) < 25 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '< 25')
-        WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) BETWEEN 25 AND 35 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '25 - 35')
-        WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) BETWEEN 35 AND 50 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '35 - 50')
-		WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) > 50 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '> 50')
-	END AS rango_etario,
-	p.pago_importe,
-	p.pago_descuento_aplicado,
-	dp.cuotas
+	brango.rango_etario_id,
+	SUM(p.pago_importe),
+	SUM(dp.cuotas)
 FROM
 	REDIS.Pago p
 	JOIN REDIS.BI_Tiempo bt ON bt.anio = YEAR(p.pago_fecha)
@@ -431,8 +424,20 @@ FROM
 	JOIN REDIS.BI_Sucursal bs ON bs.sucursal_nombre = s.sucursal_nombre
 	JOIN REDIS.Medio_Pago mp ON p.pago_medio_pago = mp.medio_pago
 	JOIN REDIS.BI_Medio_De_Pago bmp ON bmp.medio_de_pago_descripcion = mp.medio_pago
-	LEFT JOIN REDIS.Detalle_De_Pago dp ON p.pago_detalle_de_pago_id = dp.detalle_de_pago_id
-	LEFT JOIN REDIS.Cliente c ON c.cliente_dni = dp.detalle_de_pago_cliente_dni
+	JOIN REDIS.Detalle_De_Pago dp ON p.pago_detalle_de_pago_id = dp.detalle_de_pago_id
+	JOIN REDIS.Cliente c ON c.cliente_dni = dp.detalle_de_pago_cliente_dni
+	JOIN REDIS.BI_Rango_Etario brango ON brango.rango_etario_id =
+		CASE 
+		    WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) < 25 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '< 25')
+		    WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) BETWEEN 25 AND 35 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '25 - 35')
+		    WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) BETWEEN 35 AND 50 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '35 - 50')
+			WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) > 50 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '> 50')
+		END
+GROUP BY
+	bt.tiempo_id,
+	brango.rango_etario_id,
+	bs.sucursal_id,
+	bmp.medio_de_pago_id
 GO
 
 --------------------------------------
@@ -606,49 +611,32 @@ ORDER BY
 GO
 
 CREATE VIEW REDIS.V_Top3_Sucursales_Pagos_Cuotas AS
-WITH Pagos_Cuotas_Sumados AS (
-    SELECT
-        bt.anio,
-        bt.mes,
-        s.sucursal_nombre,
-        mp.medio_de_pago_descripcion,
-        SUM(p.pago_importe) AS importe_total_cuotas
-    FROM 
-        REDIS.BI_Hechos_Pago p
-        JOIN REDIS.BI_Tiempo bt ON p.tiempo_id = bt.tiempo_id
-        JOIN REDIS.BI_Sucursal s ON p.sucursal_id = s.sucursal_id
-        JOIN REDIS.BI_Medio_De_Pago mp ON p.medio_de_pago_id = mp.medio_de_pago_id
-    WHERE
-        p.cantidad_de_cuotas IS NOT NULL
-    GROUP BY
-        bt.anio,
-        bt.mes,
-        s.sucursal_nombre,
-        mp.medio_de_pago_descripcion
-)
 SELECT TOP 3
-    anio,
-    mes,
-    sucursal_nombre,
-    medio_de_pago_descripcion,
-    importe_total_cuotas
+	bt.anio,
+	bt.mes,
+	mp.medio_de_pago_descripcion,
+	SUM(hp.pago_importe) AS importe
 FROM
-    Pagos_Cuotas_Sumados
+	REDIS.BI_Hechos_Pago_Cuotas hp
+	JOIN REDIS.BI_Medio_De_Pago mp ON mp.medio_de_pago_id = hp.medio_de_pago_id
+	JOIN REDIS.BI_Tiempo bt ON bt.tiempo_id = hp.tiempo_id
+GROUP BY
+	bt.anio,
+	bt.mes,
+	mp.medio_de_pago_descripcion
 ORDER BY
-    importe_total_cuotas DESC
+	SUM(hp.pago_importe) DESC
 GO
 
 CREATE VIEW REDIS.V_Promedio_Importe_Cuota_Rango_Etario AS
 SELECT
     re.rango_descripcion AS rango_etario_cliente,
-    AVG(p.pago_importe / p.cantidad_de_cuotas) AS promedio_importe_cuota
+	SUM(hp.pago_importe) / SUM(hp.cantidad_de_cuotas) AS promedio_importe_cuota
 FROM
-    REDIS.BI_Hechos_Pago p
-    JOIN REDIS.BI_Rango_Etario re ON p.rango_etario_cliente_id = re.rango_etario_id
-WHERE
-    p.cantidad_de_cuotas IS NOT NULL
+    REDIS.BI_Hechos_Pago_Cuotas hp
+    JOIN REDIS.BI_Rango_Etario re ON hp.rango_etario_cliente_id = re.rango_etario_id
 GROUP BY
-    re.rango_descripcion;
+    re.rango_descripcion
 GO
 
 CREATE VIEW REDIS.V_Porcentaje_Descuento_Medio_Pago AS
