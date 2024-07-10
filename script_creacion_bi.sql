@@ -326,38 +326,33 @@ GROUP BY
 GO
 
 CREATE TABLE REDIS.BI_Hechos_Envio (
-    envio_id INT IDENTITY PRIMARY KEY,
 	tiempo_id INT, -- FK
 	sucursal_id INT, --FK
 	rango_etario_cliente_id INT, --FK
 	cliente_ubicacion_id INT, --FK
-	envio_fecha_programada_minima DATETIME,
-	envio_fecha_programada_maxima DATETIME,
-	envio_fecha_entrega DATETIME,
-	envio_costo DECIMAL(18,2)
+	maximo_costo_envio DECIMAL(18,2),
+	entregados_a_tiempo INT,
+	entregados_fuera_de_tiempo INT,
 	FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
 	FOREIGN KEY (sucursal_id) REFERENCES REDIS.BI_Sucursal(sucursal_id),
 	FOREIGN KEY (rango_etario_cliente_id) REFERENCES REDIS.BI_Rango_Etario(rango_etario_id),
-	FOREIGN KEY (cliente_ubicacion_id) REFERENCES REDIS.BI_Ubicacion(ubicacion_id)
+	FOREIGN KEY (cliente_ubicacion_id) REFERENCES REDIS.BI_Ubicacion(ubicacion_id),
+	PRIMARY KEY (tiempo_id, sucursal_id, rango_etario_cliente_id, cliente_ubicacion_id)
 )
 GO
 
 INSERT INTO REDIS.BI_Hechos_Envio (tiempo_id, sucursal_id, rango_etario_cliente_id, cliente_ubicacion_id,
-envio_fecha_programada_minima, envio_fecha_programada_maxima, envio_fecha_entrega, envio_costo)
+maximo_costo_envio, entregados_a_tiempo,  entregados_fuera_de_tiempo)
 SELECT
 	bt.tiempo_id,
 	bs.sucursal_id,
-	CASE 
-        WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) < 25 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '< 25')
-        WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) BETWEEN 25 AND 35 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '25 - 35')
-        WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) BETWEEN 35 AND 50 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '35 - 50')
-        ELSE (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '> 50')
-    END AS rango_etario,
+	brango.rango_etario_id AS rango_etario,
 	bu.ubicacion_id,
-	DATEADD(HOUR, CAST(e.envio_hora_inicio AS INT), e.envio_fecha_programada) AS programada_minima,
-    DATEADD(HOUR, CAST(e.envio_hora_fin AS INT), e.envio_fecha_programada) AS programada_maxima,
-	e.envio_fecha_entrega,
-	e.envio_costo
+	MAX(e.envio_costo),
+	SUM(CASE WHEN e.envio_fecha_entrega BETWEEN DATEADD(HOUR, CAST(e.envio_hora_inicio AS INT), e.envio_fecha_programada) 
+	AND DATEADD(HOUR, CAST(e.envio_hora_fin AS INT), e.envio_fecha_programada) THEN 1 ELSE 0 END) AS entregados_a_tiempo,
+	SUM(CASE WHEN e.envio_fecha_entrega NOT BETWEEN DATEADD(HOUR, CAST(e.envio_hora_inicio AS INT), e.envio_fecha_programada) 
+	AND DATEADD(HOUR, CAST(e.envio_hora_fin AS INT), e.envio_fecha_programada) THEN 1 ELSE 0 END) AS entregados_fuera_de_tiempo
 FROM 
 	REDIS.Envio e
 	JOIN REDIS.BI_Tiempo bt ON bt.anio = YEAR(e.envio_fecha_entrega)
@@ -376,6 +371,18 @@ FROM
 	JOIN REDIS.Provincia p ON p.provincia_id = l.localidad_provincia
 	JOIN REDIS.BI_Ubicacion bu ON l.localidad_nombre = bu.localidad_nombre
 		AND p.provincia_nombre = bu.provincia_nombre
+	JOIN REDIS.BI_Rango_Etario brango ON brango.rango_etario_id =
+		CASE 
+		    WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) < 25 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '< 25')
+		    WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) BETWEEN 25 AND 35 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '25 - 35')
+		    WHEN DATEDIFF(YEAR, c.cliente_fecha_nacimiento, GETDATE()) BETWEEN 35 AND 50 THEN (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '35 - 50')
+		    ELSE (SELECT rango_etario_id FROM REDIS.BI_Rango_Etario WHERE rango_descripcion = '> 50')
+		END
+GROUP BY
+	bt.tiempo_id,
+	bs.sucursal_id,
+	brango.rango_etario_id,
+	bu.ubicacion_id
 GO
 
 CREATE TABLE REDIS.BI_Hechos_Pago(
@@ -549,18 +556,17 @@ GO
 
 CREATE VIEW REDIS.V_Porcentaje_Cumplimiento_Envios AS
 SELECT
-    bs.sucursal_nombre AS Sucursal,
-    bt.anio AS Anio,
-    bt.mes AS Mes,
-    COUNT(*) AS Total_Envios,
-    SUM(CASE WHEN e.envio_fecha_entrega BETWEEN e.envio_fecha_programada_minima AND 
-	e.envio_fecha_programada_maxima THEN 1 ELSE 0 END) AS Envios_En_Tiempo,
-    CAST(SUM(CASE WHEN e.envio_fecha_entrega BETWEEN e.envio_fecha_programada_minima AND 
-	e.envio_fecha_programada_maxima THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) AS Porcentaje_Cumplimiento
-FROM 
-    REDIS.BI_Hechos_Envio e
-    JOIN REDIS.BI_Tiempo bt ON bt.tiempo_id = e.tiempo_id
-    JOIN REDIS.BI_Sucursal bs ON bs.sucursal_id = e.sucursal_id
+    bs.sucursal_nombre,
+    bt.anio,
+    bt.mes,
+    COUNT(he.maximo_costo_envio) AS total_envios,
+    SUM(he.entregados_a_tiempo) AS envios_a_tiempo,
+    SUM(he.entregados_fuera_de_tiempo) AS envios_fuera_de_tiempo,
+    (SUM(he.entregados_a_tiempo) * 1.0 / COUNT(he.maximo_costo_envio)) * 100 AS porcentaje_cumplimiento
+FROM
+    REDIS.BI_Hechos_Envio he
+    JOIN REDIS.BI_Sucursal bs ON he.sucursal_id = bs.sucursal_id
+    JOIN REDIS.BI_Tiempo bt ON he.tiempo_id = bt.tiempo_id
 GROUP BY
     bs.sucursal_nombre,
     bt.anio,
@@ -569,25 +575,25 @@ GO
 
 CREATE VIEW REDIS.V_Cantidad_Envios_Rango_Etario_Clientes AS
 SELECT
-    bt.anio AS Anio,
-    bt.cuatrimestre AS Cuatrimestre,
-    re.rango_descripcion AS Rango_Etario,
-    COUNT(*) AS Cantidad_Envios
-FROM 
-    REDIS.BI_Hechos_Envio e
-    JOIN REDIS.BI_Tiempo bt ON bt.tiempo_id = e.tiempo_id
-    JOIN REDIS.BI_Rango_Etario re ON re.rango_etario_id = e.rango_etario_cliente_id
-GROUP BY
+    brango.rango_descripcion,
     bt.anio,
     bt.cuatrimestre,
-    re.rango_descripcion
+    COUNT(he.maximo_costo_envio) AS cantidad_envios
+FROM
+    REDIS.BI_Hechos_Envio he
+    JOIN REDIS.BI_Rango_Etario brango ON he.rango_etario_cliente_id = brango.rango_etario_id
+    JOIN REDIS.BI_Tiempo bt ON he.tiempo_id = bt.tiempo_id
+GROUP BY
+    brango.rango_descripcion,
+    bt.anio,
+    bt.cuatrimestre
 GO
 
 CREATE VIEW REDIS.V_Top5_Localidades_Mayor_Costo_Envio AS
 SELECT TOP 5
     bu.localidad_nombre,
     bu.provincia_nombre,
-    SUM(be.envio_costo) AS total_envio_costo
+    MAX(be.maximo_costo_envio) AS costo_de_envio
 FROM
     REDIS.BI_Hechos_Envio be
 JOIN
@@ -596,7 +602,7 @@ GROUP BY
     bu.localidad_nombre,
     bu.provincia_nombre
 ORDER BY
-    total_envio_costo DESC
+    costo_de_envio DESC
 GO
 
 CREATE VIEW REDIS.V_Top3_Sucursales_Pagos_Cuotas AS
