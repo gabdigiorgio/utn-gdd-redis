@@ -33,6 +33,7 @@ IF OBJECT_ID('REDIS.BI_Hechos_Venta', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hecho
 IF OBJECT_ID('REDIS.BI_Hechos_Promocion', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Promocion;
 IF OBJECT_ID('REDIS.BI_Hechos_Envio', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Envio;
 IF OBJECT_ID('REDIS.BI_Hechos_Pago_Cuotas', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Pago_Cuotas;
+IF OBJECT_ID('REDIS.BI_Hechos_Pago', 'U') IS NOT NULL DROP TABLE REDIS.BI_Hechos_Pago;
 
 -- Dimensiones
 IF OBJECT_ID('REDIS.BI_Tiempo', 'U') IS NOT NULL DROP TABLE REDIS.BI_Tiempo;
@@ -440,6 +441,40 @@ GROUP BY
 	bmp.medio_de_pago_id
 GO
 
+CREATE TABLE REDIS.BI_Hechos_Pago(
+	tiempo_id INT, -- FK
+	medio_de_pago_id INT, --FK
+	pago_importe DECIMAL(18, 2),
+	pago_descuento_aplicado DECIMAL(18, 2),
+	FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
+	FOREIGN KEY (medio_de_pago_id) REFERENCES REDIS.BI_Medio_De_Pago(medio_de_pago_id),
+	PRIMARY KEY (tiempo_id, medio_de_pago_id)
+)
+GO
+
+INSERT INTO REDIS.BI_Hechos_Pago (tiempo_id, medio_de_pago_id, pago_importe, pago_descuento_aplicado)
+SELECT
+	bt.tiempo_id,
+	bmp.medio_de_pago_id,
+	SUM(p.pago_importe),
+	SUM(p.pago_descuento_aplicado)
+FROM
+	REDIS.Pago p
+	JOIN REDIS.BI_Tiempo bt ON bt.anio = YEAR(p.pago_fecha)
+                            AND bt.mes = DATEPART(MONTH, p.pago_fecha)
+                            AND bt.cuatrimestre = 
+                                CASE 
+                                    WHEN DATEPART(MONTH, p.pago_fecha) BETWEEN 1 AND 4 THEN 1
+                                    WHEN DATEPART(MONTH, p.pago_fecha) BETWEEN 5 AND 8 THEN 2
+                                    WHEN DATEPART(MONTH, p.pago_fecha) BETWEEN 9 AND 12 THEN 3
+                                END
+	JOIN REDIS.Medio_Pago mp ON p.pago_medio_pago = mp.medio_pago
+	JOIN REDIS.BI_Medio_De_Pago bmp ON bmp.medio_de_pago_descripcion = mp.medio_pago
+GROUP BY
+	bt.tiempo_id,
+	bmp.medio_de_pago_id
+GO
+
 --------------------------------------
 --------- VIEWS  ---------------------
 --------------------------------------
@@ -640,30 +675,44 @@ GROUP BY
 GO
 
 CREATE VIEW REDIS.V_Porcentaje_Descuento_Medio_Pago AS
-WITH TotalPagos AS (
-    SELECT
-        bt.cuatrimestre,
-        mp.medio_de_pago_descripcion,
-        SUM(p.pago_importe) AS total_pagos_sin_descuento,
-        SUM(p.pago_descuento_aplicado) AS total_descuentos_aplicados
-    FROM
-        REDIS.BI_Hechos_Pago p
-        JOIN REDIS.BI_Tiempo bt ON p.tiempo_id = bt.tiempo_id
-        JOIN REDIS.BI_Medio_De_Pago mp ON p.medio_de_pago_id = mp.medio_de_pago_id
-    GROUP BY
-        bt.cuatrimestre,
-        mp.medio_de_pago_descripcion
-)
 SELECT
-    cuatrimestre,
-    medio_de_pago_descripcion,
-    total_descuentos_aplicados AS total_descuentos_aplicados,
-    CASE
-        WHEN total_pagos_sin_descuento > 0 THEN
-            (total_descuentos_aplicados / total_pagos_sin_descuento) * 100
-        ELSE
-            0
-    END AS porcentaje_descuento_aplicado
+	bt.anio,
+	bt.cuatrimestre,
+	bmp.medio_de_pago_descripcion,
+	(SUM(hp.pago_descuento_aplicado) / SUM(hp.pago_importe + hp.pago_descuento_aplicado)) * 100 AS 'Porcentaje de descuento aplicado'
 FROM
-    TotalPagos
+	REDIS.BI_Hechos_Pago hp
+	JOIN REDIS.BI_Tiempo bt ON bt.tiempo_id = hp.tiempo_id
+	JOIN REDIS.BI_Medio_De_Pago bmp ON bmp.medio_de_pago_id = hp.medio_de_pago_id
+GROUP BY
+	bt.anio,
+	bt.cuatrimestre,
+	bmp.medio_de_pago_descripcion
 GO
+
+--WITH TotalPagos AS (
+--    SELECT
+--        bt.cuatrimestre,
+--        mp.medio_de_pago_descripcion,
+--        SUM(p.pago_importe) AS total_pagos_sin_descuento,
+--        SUM(p.pago_descuento_aplicado) AS total_descuentos_aplicados
+--    FROM
+--        REDIS.BI_Hechos_Pago p
+--        JOIN REDIS.BI_Tiempo bt ON p.tiempo_id = bt.tiempo_id
+--        JOIN REDIS.BI_Medio_De_Pago mp ON p.medio_de_pago_id = mp.medio_de_pago_id
+--    GROUP BY
+--        bt.cuatrimestre,
+--        mp.medio_de_pago_descripcion
+--)
+--SELECT
+--    cuatrimestre,
+--    medio_de_pago_descripcion,
+--    total_descuentos_aplicados AS total_descuentos_aplicados,
+--    CASE
+--        WHEN total_pagos_sin_descuento > 0 THEN
+--            (total_descuentos_aplicados / total_pagos_sin_descuento) * 100
+--        ELSE
+--            0
+--    END AS porcentaje_descuento_aplicado
+--FROM
+--    TotalPagos
