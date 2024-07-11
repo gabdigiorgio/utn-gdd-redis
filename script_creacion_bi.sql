@@ -524,7 +524,7 @@ SELECT
     re.rango_descripcion AS Rango_Etario_Empleado,
     tc.tipo_caja_descripcion AS Tipo_Caja,
     SUM(hv.importe_venta) AS Ventas_Acumuladas,
-    SUM(SUM(hv.importe_venta)) OVER (PARTITION BY bt.anio, re.rango_descripcion, tc.tipo_caja_descripcion) AS Total_Ventas_Annio,
+    SUM(SUM(hv.importe_venta)) OVER (PARTITION BY bt.anio, re.rango_descripcion, tc.tipo_caja_descripcion) AS Total_Ventas_Anio,
     CAST((SUM(hv.importe_venta) * 100.0 / SUM(SUM(hv.importe_venta)) 
 	OVER (PARTITION BY bt.anio, re.rango_descripcion, tc.tipo_caja_descripcion)) AS DECIMAL(18,2)) AS Porcentaje_Ventas
 FROM
@@ -666,7 +666,12 @@ GO
 CREATE VIEW REDIS.V_Promedio_Importe_Cuota_Rango_Etario AS
 SELECT
     re.rango_descripcion AS rango_etario_cliente,
-	SUM(hp.pago_importe) / SUM(hp.cantidad_de_cuotas) AS promedio_importe_cuota
+	AVG(hp.pago_importe / hp.cantidad_de_cuotas) AS promedio_importe_cuota 
+	-- (hp.pago_importe / hp.cantidad_de_cuotas) me da el valor
+	-- de cada cuota en particular y despues hago el average para sacar el promedio
+
+	-- Calculo anterior:
+	--SUM(hp.pago_importe) / SUM(hp.cantidad_de_cuotas) AS promedio_importe_cuota 
 FROM
     REDIS.BI_Hechos_Pago_Cuotas hp
     JOIN REDIS.BI_Rango_Etario re ON hp.rango_etario_cliente_id = re.rango_etario_id
@@ -679,7 +684,7 @@ SELECT
 	bt.anio,
 	bt.cuatrimestre,
 	bmp.medio_de_pago_descripcion,
-	(SUM(hp.pago_descuento_aplicado) / SUM(hp.pago_importe + hp.pago_descuento_aplicado)) * 100 AS 'Porcentaje de descuento aplicado'
+	(SUM(hp.pago_descuento_aplicado) * 100.0) / (SUM(hp.pago_importe) + SUM(hp.pago_descuento_aplicado)) AS porcentaje_descuento
 FROM
 	REDIS.BI_Hechos_Pago hp
 	JOIN REDIS.BI_Tiempo bt ON bt.tiempo_id = hp.tiempo_id
@@ -689,30 +694,3 @@ GROUP BY
 	bt.cuatrimestre,
 	bmp.medio_de_pago_descripcion
 GO
-
---WITH TotalPagos AS (
---    SELECT
---        bt.cuatrimestre,
---        mp.medio_de_pago_descripcion,
---        SUM(p.pago_importe) AS total_pagos_sin_descuento,
---        SUM(p.pago_descuento_aplicado) AS total_descuentos_aplicados
---    FROM
---        REDIS.BI_Hechos_Pago p
---        JOIN REDIS.BI_Tiempo bt ON p.tiempo_id = bt.tiempo_id
---        JOIN REDIS.BI_Medio_De_Pago mp ON p.medio_de_pago_id = mp.medio_de_pago_id
---    GROUP BY
---        bt.cuatrimestre,
---        mp.medio_de_pago_descripcion
---)
---SELECT
---    cuatrimestre,
---    medio_de_pago_descripcion,
---    total_descuentos_aplicados AS total_descuentos_aplicados,
---    CASE
---        WHEN total_pagos_sin_descuento > 0 THEN
---            (total_descuentos_aplicados / total_pagos_sin_descuento) * 100
---        ELSE
---            0
---    END AS porcentaje_descuento_aplicado
---FROM
---    TotalPagos
