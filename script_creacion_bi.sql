@@ -667,11 +667,6 @@ CREATE VIEW REDIS.V_Promedio_Importe_Cuota_Rango_Etario AS
 SELECT
     re.rango_descripcion AS rango_etario_cliente,
 	AVG(hp.pago_importe / hp.cantidad_de_cuotas) AS promedio_importe_cuota 
-	-- (hp.pago_importe / hp.cantidad_de_cuotas) me da el valor
-	-- de cada cuota en particular y despues hago el average para sacar el promedio
-
-	-- Calculo anterior:
-	--SUM(hp.pago_importe) / SUM(hp.cantidad_de_cuotas) AS promedio_importe_cuota 
 FROM
     REDIS.BI_Hechos_Pago_Cuotas hp
     JOIN REDIS.BI_Rango_Etario re ON hp.rango_etario_cliente_id = re.rango_etario_id
