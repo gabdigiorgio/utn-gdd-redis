@@ -14,6 +14,7 @@ GO
 -------------- DROP TABLES --------------
 -----------------------------------------
 
+IF OBJECT_ID('REDIS.Descuento_Por_Medio_De_Pago', 'U') IS NOT NULL DROP TABLE REDIS.Descuento_Por_Medio_De_Pago;
 IF OBJECT_ID('REDIS.Detalle_De_Pago', 'U') IS NOT NULL DROP TABLE REDIS.Detalle_De_Pago;
 IF OBJECT_ID('REDIS.Descuento_Por_Pago', 'U') IS NOT NULL DROP TABLE REDIS.Descuento_Por_Pago;
 IF OBJECT_ID('REDIS.Pago', 'U') IS NOT NULL DROP TABLE REDIS.Pago;
@@ -37,7 +38,6 @@ IF OBJECT_ID('REDIS.Caja', 'U') IS NOT NULL DROP TABLE REDIS.Caja;
 IF OBJECT_ID('REDIS.Sucursal', 'U') IS NOT NULL DROP TABLE REDIS.Sucursal;
 IF OBJECT_ID('REDIS.Localidad', 'U') IS NOT NULL DROP TABLE REDIS.Localidad;
 IF OBJECT_ID('REDIS.Provincia', 'U') IS NOT NULL DROP TABLE REDIS.Provincia;
-IF OBJECT_ID('REDIS.Descuento_Por_Medio_De_Pago', 'U') IS NOT NULL DROP TABLE REDIS.Descuento_Por_Medio_De_Pago;
 
 --------------------------------------
 ---------- PROCEDURE DROPS -----------
@@ -942,3 +942,9 @@ ADD FOREIGN KEY (descuento_codigo) REFERENCES REDIS.Descuento (descuento_codigo)
 
 ALTER TABLE REDIS.Descuento_Por_Medio_De_Pago
 ADD FOREIGN KEY (medio_de_pago) REFERENCES REDIS.Medio_Pago (medio_pago)
+
+ALTER TABLE REDIS.Promocion_Por_Ticket
+ADD FOREIGN KEY (promocion_codigo) REFERENCES REDIS.Promocion (promocion_codigo)
+
+ALTER TABLE REDIS.Promocion_Por_Ticket
+ADD FOREIGN KEY (ticket_detalle_id) REFERENCES REDIS.Ticket_Detalle (ticket_detalle_id)
