@@ -230,6 +230,7 @@ CREATE TABLE REDIS.BI_Hechos_Venta
 	ticket_total_descuento_aplicado_prod DECIMAL(18, 2),
 	ticket_total_descuento_aplicado_mp DECIMAL(18, 2),
 	ticket_total_descuento_aplicado_total DECIMAL(18, 2),
+	cantidad_ventas INT,
 	FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
 	FOREIGN KEY (ubicacion_id) REFERENCES REDIS.BI_Ubicacion(ubicacion_id),
 	FOREIGN KEY (rango_etario_empleado_id) REFERENCES REDIS.BI_Rango_Etario(rango_etario_id),
@@ -242,7 +243,7 @@ GO
 INSERT INTO REDIS.BI_Hechos_Venta (
     tiempo_id, ubicacion_id, turno_id, importe_venta, cantidad_unidades, rango_etario_empleado_id,
 	tipo_caja_id, ticket_total_descuento_aplicado_prod, ticket_total_descuento_aplicado_mp,
-	ticket_total_descuento_aplicado_total
+	ticket_total_descuento_aplicado_total, cantidad_ventas
 )
 SELECT
     bt.tiempo_id,
@@ -254,7 +255,8 @@ SELECT
 	tc.tipo_caja_id,
 	SUM(t.ticket_total_descuento_aplicado),
 	SUM(t.ticket_total_descuento_aplicado_mp),
-	SUM(t.ticket_total_descuento_aplicado + t.ticket_total_descuento_aplicado_mp)
+	SUM(t.ticket_total_descuento_aplicado + t.ticket_total_descuento_aplicado_mp),
+	COUNT(*)
 FROM 
 	REDIS.Ticket t
 	JOIN REDIS.Sucursal s ON t.ticket_sucursal_id = s.sucursal_id
@@ -334,6 +336,7 @@ CREATE TABLE REDIS.BI_Hechos_Envio (
 	maximo_costo_envio DECIMAL(18,2),
 	entregados_a_tiempo INT,
 	entregados_fuera_de_tiempo INT,
+	cantidad_envios INT,
 	FOREIGN KEY (tiempo_id) REFERENCES REDIS.BI_Tiempo(tiempo_id),
 	FOREIGN KEY (sucursal_id) REFERENCES REDIS.BI_Sucursal(sucursal_id),
 	FOREIGN KEY (rango_etario_cliente_id) REFERENCES REDIS.BI_Rango_Etario(rango_etario_id),
@@ -343,7 +346,7 @@ CREATE TABLE REDIS.BI_Hechos_Envio (
 GO
 
 INSERT INTO REDIS.BI_Hechos_Envio (tiempo_id, sucursal_id, rango_etario_cliente_id, cliente_ubicacion_id,
-maximo_costo_envio, entregados_a_tiempo,  entregados_fuera_de_tiempo)
+maximo_costo_envio, entregados_a_tiempo,  entregados_fuera_de_tiempo, cantidad_envios)
 SELECT
 	bt.tiempo_id,
 	bs.sucursal_id,
@@ -353,7 +356,8 @@ SELECT
 	SUM(CASE WHEN e.envio_fecha_entrega BETWEEN DATEADD(HOUR, CAST(e.envio_hora_inicio AS INT), e.envio_fecha_programada) 
 	AND DATEADD(HOUR, CAST(e.envio_hora_fin AS INT), e.envio_fecha_programada) THEN 1 ELSE 0 END) AS entregados_a_tiempo,
 	SUM(CASE WHEN e.envio_fecha_entrega NOT BETWEEN DATEADD(HOUR, CAST(e.envio_hora_inicio AS INT), e.envio_fecha_programada) 
-	AND DATEADD(HOUR, CAST(e.envio_hora_fin AS INT), e.envio_fecha_programada) THEN 1 ELSE 0 END) AS entregados_fuera_de_tiempo
+	AND DATEADD(HOUR, CAST(e.envio_hora_fin AS INT), e.envio_fecha_programada) THEN 1 ELSE 0 END) AS entregados_fuera_de_tiempo,
+	COUNT(*)
 FROM 
 	REDIS.Envio e
 	JOIN REDIS.BI_Tiempo bt ON bt.anio = YEAR(e.envio_fecha_entrega)
@@ -523,10 +527,7 @@ SELECT
     bt.cuatrimestre AS Cuatrimestre,
     re.rango_descripcion AS Rango_Etario_Empleado,
     tc.tipo_caja_descripcion AS Tipo_Caja,
-    SUM(hv.importe_venta) AS Ventas_Acumuladas,
-    SUM(SUM(hv.importe_venta)) OVER (PARTITION BY bt.anio, re.rango_descripcion, tc.tipo_caja_descripcion) AS Total_Ventas_Anio,
-    CAST((SUM(hv.importe_venta) * 100.0 / SUM(SUM(hv.importe_venta)) 
-	OVER (PARTITION BY bt.anio, re.rango_descripcion, tc.tipo_caja_descripcion)) AS DECIMAL(18,2)) AS Porcentaje_Ventas
+	CAST((SUM(hv.cantidad_ventas) * 100.0 / SUM(SUM(hv.cantidad_ventas)) OVER (PARTITION BY bt.anio, re.rango_descripcion, tc.tipo_caja_descripcion)) AS DECIMAL(18,2)) AS Porcentaje_Ventas
 FROM
     REDIS.BI_Hechos_Venta hv
 JOIN
@@ -548,7 +549,7 @@ SELECT
     bt.mes,
     bu.localidad_nombre,
     bturno.turno_descripcion AS turno,
-    COUNT(*) AS cantidad_ventas
+	SUM(hv.cantidad_ventas) AS cantidad_ventas
 FROM 
     REDIS.BI_Hechos_Venta hv
 	JOIN REDIS.BI_Tiempo bt ON bt.tiempo_id = hv.tiempo_id
@@ -561,6 +562,7 @@ GROUP BY
     bturno.turno_descripcion
 GO
 
+-- REVISAR POR LAS DUDAS
 CREATE VIEW REDIS.V_Porcentaje_Descuento_Tickets AS
 SELECT
     bt.anio AS Anio,
@@ -599,10 +601,10 @@ SELECT
     bs.sucursal_nombre,
     bt.anio,
     bt.mes,
-    COUNT(he.maximo_costo_envio) AS total_envios,
+    SUM(he.cantidad_envios) AS total_envios,
     SUM(he.entregados_a_tiempo) AS envios_a_tiempo,
     SUM(he.entregados_fuera_de_tiempo) AS envios_fuera_de_tiempo,
-    (SUM(he.entregados_a_tiempo) * 1.0 / COUNT(he.maximo_costo_envio)) * 100 AS porcentaje_cumplimiento
+    (SUM(he.entregados_a_tiempo) * 1.0 / SUM(he.cantidad_envios)) * 100 AS porcentaje_cumplimiento
 FROM
     REDIS.BI_Hechos_Envio he
     JOIN REDIS.BI_Sucursal bs ON he.sucursal_id = bs.sucursal_id
@@ -618,7 +620,7 @@ SELECT
     brango.rango_descripcion,
     bt.anio,
     bt.cuatrimestre,
-    COUNT(he.maximo_costo_envio) AS cantidad_envios
+    SUM(he.cantidad_envios) AS cantidad_envios
 FROM
     REDIS.BI_Hechos_Envio he
     JOIN REDIS.BI_Rango_Etario brango ON he.rango_etario_cliente_id = brango.rango_etario_id
