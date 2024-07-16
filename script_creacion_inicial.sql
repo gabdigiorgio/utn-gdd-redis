@@ -803,30 +803,30 @@ BEGIN
         promocion_codigo,
         promo_aplicada_descuento
     )
-    SELECT
-        ticket_detalle_id,
-        promocion_codigo,
-        promo_aplicada_descuento
-    FROM
-        (
-            SELECT
-                td.ticket_detalle_id,
-                p.promocion_codigo,
-                m.PROMO_APLICADA_DESCUENTO AS promo_aplicada_descuento,
-                ROW_NUMBER() OVER (PARTITION BY td.ticket_detalle_id ORDER BY p.promocion_codigo) AS rn
-            FROM
-                REDIS.Ticket_Detalle td
-                JOIN REDIS.Ticket t ON t.ticket_id = td.ticket_numero
-                JOIN gd_esquema.Maestra m ON m.TICKET_NUMERO = t.ticket_numero
-                JOIN REDIS.Promocion_Por_Producto ppp ON ppp.producto_id = td.producto_id
-                JOIN REDIS.Promocion p ON p.promocion_codigo = ppp.promocion_codigo
-            WHERE
-                m.PROMO_APLICADA_DESCUENTO IS NOT NULL
-                AND m.PROMO_CODIGO IS NOT NULL
-                AND m.PROMO_CODIGO = p.promocion_codigo
-        ) sub
-    WHERE
-        rn = 1
+	SELECT
+	td.ticket_detalle_id,
+	ppp.promocion_codigo,
+	m.PROMO_APLICADA_DESCUENTO
+	FROM
+		gd_esquema.Maestra m,
+		REDIS.Ticket_Detalle td
+		JOIN REDIS.Ticket t ON td.ticket_numero = t.ticket_id
+		JOIN REDIS.Producto prod ON prod.producto_id = td.producto_id
+		JOIN REDIS.Marca_Producto marc ON marc.marca_producto_nombre = prod.producto_marca
+		JOIN REDIS.Subcategoria_Producto sp ON prod.producto_subcategoria = sp.subcategoria_producto_id
+		JOIN REDIS.Categoria_Producto cp ON cp.categoria_producto_nombre = sp.categoria_producto
+		JOIN REDIS.Promocion_Por_Producto ppp ON ppp.producto_id = prod.producto_id
+	WHERE
+		m.TICKET_NUMERO = t.ticket_numero
+		AND m.PRODUCTO_NOMBRE = prod.producto_codigo
+		AND m.PRODUCTO_MARCA = marc.marca_producto_nombre
+		AND m.PRODUCTO_SUB_CATEGORIA = sp.subcategoria_producto_nombre
+		AND m.PRODUCTO_CATEGORIA = cp.categoria_producto_nombre
+		AND m.PROMO_CODIGO = ppp.promocion_codigo
+	GROUP BY
+		td.ticket_detalle_id,
+		ppp.promocion_codigo,
+		m.PROMO_APLICADA_DESCUENTO
 END
 GO
 
