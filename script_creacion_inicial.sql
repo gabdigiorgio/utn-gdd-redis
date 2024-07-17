@@ -823,10 +823,7 @@ BEGIN
 		AND m.PRODUCTO_SUB_CATEGORIA = sp.subcategoria_producto_nombre
 		AND m.PRODUCTO_CATEGORIA = cp.categoria_producto_nombre
 		AND m.PROMO_CODIGO = ppp.promocion_codigo
-		AND m.TICKET_DET_CANTIDAD = td.cantidad -- agregue esto porque habia ticket_detalle que son del mismo ticket_numero,
-		-- coinciden en producto y todo menos la cantidad. Es decir, un ticket_detalle que compró un producto A con cantidad 10
-		-- otro ticket_detalle que compró tambien el producto A pero con cantidad 1.
-		--AND td.ticket_detalle_id BETWEEN 2199 AND 2200
+		AND m.TICKET_DET_CANTIDAD = td.cantidad
 	GROUP BY
 		td.ticket_detalle_id,
 		ppp.promocion_codigo,

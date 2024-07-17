@@ -562,7 +562,6 @@ GROUP BY
     bturno.turno_descripcion
 GO
 
--- REVISAR POR LAS DUDAS
 CREATE VIEW REDIS.V_Porcentaje_Descuento_Tickets AS
 SELECT
     bt.anio AS Anio,
