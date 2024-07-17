@@ -567,8 +567,8 @@ CREATE VIEW REDIS.V_Porcentaje_Descuento_Tickets AS
 SELECT
     bt.anio AS Anio,
     bt.mes AS Mes,
-    SUM(hv.ticket_total_descuento_aplicado_total) AS Descuentos_Totales,
-    SUM(hv.importe_venta) AS Total_Ventas,
+    SUM(hv.ticket_total_descuento_aplicado_total) AS Monto_Total_Descuentos,
+    SUM(hv.importe_venta) AS Monto_Total_Ventas,
     CAST((SUM(hv.ticket_total_descuento_aplicado_total) * 100.0 / SUM(hv.importe_venta)) AS DECIMAL(18,2)) AS Porcentaje_Descuento
 FROM
     REDIS.BI_Hechos_Venta hv
