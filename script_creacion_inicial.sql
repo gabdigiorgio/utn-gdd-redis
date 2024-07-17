@@ -806,8 +806,7 @@ BEGIN
 	SELECT
 		td.ticket_detalle_id,
 		ppp.promocion_codigo,
-		SUM(m.PROMO_APLICADA_DESCUENTO) -- le puse sum porque hay casos donde hay varios ticket_detalle con la misma promo_codigo
-		-- caso ticket_detalle_id = 2199 por ejemplo
+		m.PROMO_APLICADA_DESCUENTO
 	FROM
 		gd_esquema.Maestra m,
 		REDIS.Ticket_Detalle td
@@ -824,10 +823,14 @@ BEGIN
 		AND m.PRODUCTO_SUB_CATEGORIA = sp.subcategoria_producto_nombre
 		AND m.PRODUCTO_CATEGORIA = cp.categoria_producto_nombre
 		AND m.PROMO_CODIGO = ppp.promocion_codigo
-		AND td.ticket_detalle_id = 2199
+		AND m.TICKET_DET_CANTIDAD = td.cantidad -- agregue esto porque habia ticket_detalle que son del mismo ticket_numero,
+		-- coinciden en producto y todo menos la cantidad. Es decir, un ticket_detalle que compró un producto A con cantidad 10
+		-- otro ticket_detalle que compró tambien el producto A pero con cantidad 1.
+		--AND td.ticket_detalle_id BETWEEN 2199 AND 2200
 	GROUP BY
 		td.ticket_detalle_id,
-		ppp.promocion_codigo
+		ppp.promocion_codigo,
+		m.PROMO_APLICADA_DESCUENTO
 END
 GO
 
