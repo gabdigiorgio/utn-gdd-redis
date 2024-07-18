@@ -488,7 +488,7 @@ SELECT
     bu.localidad_nombre AS Localidad,
     bt.anio AS Anio,
     bt.mes AS Mes,
-    AVG(hv.importe_venta) AS Ticket_Promedio
+    AVG(hv.importe_venta / hv.cantidad_ventas) AS Ticket_Promedio
 FROM
     REDIS.BI_Hechos_Venta hv
 JOIN
@@ -507,7 +507,7 @@ SELECT
     bt.cuatrimestre AS Cuatrimestre,
     bt.mes AS Mes,
     btu.turno_descripcion AS Turno,
-    AVG(hv.cantidad_unidades) AS Cantidad_Unidades_Promedio
+    AVG(hv.cantidad_unidades / hv.cantidad_ventas) AS Cantidad_Unidades_Promedio
 FROM
     REDIS.BI_Hechos_Venta hv
 JOIN
